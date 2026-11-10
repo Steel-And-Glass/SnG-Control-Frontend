@@ -1,9 +1,10 @@
-import type { Structure } from "@/features/measurements/contracts";
+import type { MeasurementDelivery, Structure } from "@/features/measurements/contracts";
 import type { ProjectDocument, DocumentActor } from "@/features/documents/types";
 import { ApiError } from "@/lib/api/apiError";
-export interface EngineeringRow { structure: Structure; revision: number; completed: boolean; changedAt: string | null }
+export interface EngineeringRow { structure: Structure; revision: number; completed: boolean; changedAt: string | null; origin?: { submissionId: string; number: number; evidenceVersion: number } }
 export interface EngineeringState {
- projectId: string; checklistId: string; submissionId: string; taskId: string; taskStatus: "InProgress" | "Completed";
+ isIncremental?: true; deliveries?: MeasurementDelivery[];
+ projectId: string; checklistId: string | null; submissionId: string | null; taskId: string; taskStatus: "InProgress" | "Completed";
  responsibleSubject: string; canModify: boolean; startedAt: string; completedAt: string | null; revision: number;
  total: number; completed: number; pending: number; progress: number; structures: EngineeringRow[];
  documents: { document: ProjectDocument; version: number; sha256: string }[]; currentDocumentId: string | null;
@@ -14,14 +15,17 @@ export function parseEngineering(value: unknown, projectId: string): Engineering
  if (!value || typeof value !== "object" || Array.isArray(value)) return fail();
  const v = value as EngineeringState;
  const keys = ["projectId","checklistId","submissionId","taskId","taskStatus","responsibleSubject","canModify","startedAt","completedAt","revision","total","completed","pending","progress","structures","documents","currentDocumentId","history"];
+ if (v.isIncremental === true) keys.push("isIncremental", "deliveries");
  if (Object.keys(v).length !== keys.length || keys.some(k => !Object.hasOwn(v,k)) || v.projectId !== projectId
-   || ![v.checklistId,v.submissionId,v.taskId,v.responsibleSubject].every(x => typeof x === "string" && !!x)
+   || !(v.isIncremental ? [v.taskId,v.responsibleSubject] : [v.checklistId,v.submissionId,v.taskId,v.responsibleSubject]).every(x => typeof x === "string" && !!x)
    || !["InProgress","Completed"].includes(v.taskStatus) || typeof v.canModify !== "boolean"
    || ![v.revision,v.total,v.completed,v.pending].every(x => Number.isSafeInteger(x) && x >= 0)
    || typeof v.progress !== "number" || !Number.isFinite(v.progress) || v.progress < 0 || v.progress > 100
    || !Array.isArray(v.structures) || !Array.isArray(v.documents) || !Array.isArray(v.history)
    || v.structures.length !== v.total || v.completed + v.pending !== v.total) return fail();
+ if (v.isIncremental && (v.checklistId !== null || v.submissionId !== null || v.taskStatus !== "InProgress" || v.completedAt !== null || v.currentDocumentId !== null || v.documents.length || !Array.isArray(v.deliveries))) return fail();
  for (const r of v.structures) {
+   if (v.isIncremental && (!r.origin || Object.keys(r.origin).length !== 3 || typeof r.origin.submissionId !== "string" || !Number.isSafeInteger(r.origin.number) || r.origin.number < 1 || r.origin.evidenceVersion !== 1)) return fail();
    const s = r?.structure;
    if (!s || typeof s.id !== "string" || typeof r.completed !== "boolean" || !Number.isSafeInteger(r.revision) || r.revision < 0
      || !Number.isSafeInteger(s.unitOrdinal) || s.unitOrdinal <= 0 || !Number.isSafeInteger(s.unitCount) || s.unitCount < s.unitOrdinal

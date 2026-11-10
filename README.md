@@ -503,6 +503,16 @@ La selección de PDF y su carga son operaciones distintas. Se admiten Actas de h
 El BFF permite únicamente los métodos y rutas de Ingeniería declarados, propaga identidad/rol y conserva no-store. La radicación requiere `Authentication:EngineeringAssigneeSubject` en Backend; no se configura un Subject real en Frontend. La migración y la incorporación explícita de expedientes históricos siguen el procedimiento de Backend y no se ejecutan desde esta UI.
 
 
+## Instalación incremental y recepción por tramos
+
+Cuando Backend identifica el checklist como incremental, Instalación puede seleccionar estructuras medidas y completas por su ID físico, declarar qué documentos respaldan cada una y confirmar una radicación parcial. El resto permanece editable y se pueden agregar estructuras. Las entregadas muestran su tramo y quedan congeladas.
+
+Cada tramo conserva su PDF A3, documentos y alcance. «Radicaciones enviadas» muestra número, fecha, responsable, integrantes, evidencia y descarga autenticada. Un legado incompleto se indica expresamente; no se inventan integrantes ni PDFs.
+
+Ingeniería recibe las entregas en orden y guarda checks independientes sin perder el trabajo anterior. En este modo no ofrece carga de Acta, cierre global ni envío comercial. Los expedientes tradicionales conservan su circuito.
+
+La activación pertenece a Backend: solo proyectos nuevos posteriores al corte explícito `Measurements:IncrementalNewProjectsFromUtc`, con ambos consumidores desplegados. No hay interruptor local ni activación retroactiva desde esta UI.
+
 ## Presentación y correcciones del Acta de Vanos
 
 El expediente incorpora Presentación del Acta de Vanos, selección de ronda, documento presentado, estructuras en orden, confirmaciones persistidas y duración de respuesta. Confirmar presentación exige confirmación explícita; el contador parte de timestamps y duración proporcionados por Backend y usa tiempo monotónico solo para refrescar la visualización. No constituye SLA ni crea vencimientos.

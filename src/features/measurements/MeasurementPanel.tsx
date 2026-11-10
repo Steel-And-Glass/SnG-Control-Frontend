@@ -10,6 +10,7 @@ import { ApiError } from "@/lib/api/apiError";
 import { saveDownload } from "@/lib/api/saveDownload";
 import { formatDate } from "@/lib/formatDate";
 import { StructureCard, useMeasurementImages } from "./StructureCard";
+import { IncrementalSubmissions, DeliveryHistory } from "./IncrementalSubmissions";
 import { metresToMm, mmToMetres } from "./units";
 import { technicalText } from "./technicalText";
 import styles from "./MeasurementPanel.module.css";
@@ -37,9 +38,10 @@ export function MeasurementPanel({ projectId, onRefresh }: { projectId: string; 
   }, [dirtyIds.size]);
   const uploadKey = useRef<string | null>(null);
   const operation = useRef<AbortController | null>(null);
-  useEffect(() => () => operation.current?.abort(), [projectId, activeRole]);
+  useEffect(() => () => operation.current?.abort(), [projectId, activeRole, user?.subject]);
   const writable = !!data?.canModify && activeRole === "Installation" && user?.subject === data.responsibleSubject;
-  const disabled = busy || !!pending;
+  const [submittingTranche, setSubmittingTranche] = useState(false);
+  const disabled = busy || !!pending || submittingTranche;
   async function run(action: "initialize" | "upload" | MeasurementCommand) {
     if (!writable || operation.current) return;
     const controller = new AbortController(); operation.current = controller; setBusy(true); setError(undefined); setNotice("");
@@ -93,10 +95,11 @@ export function MeasurementPanel({ projectId, onRefresh }: { projectId: string; 
     finally { if (!controller.signal.aborted) { operation.current = null; setBusy(false); } }
   }
   if (!data) return <><p role="status">Consultando toma de medidas…</p><ErrorNotice error={resource.error} retry={resource.refresh} /></>;
+  const frozen = new Set(data.deliveries?.flatMap(d => d.structureIds));
   const current = data.documents.filter(d => d.isCurrent);
 
-  const labels: Record<string, string> = { Initialize: "Checklist iniciado", Add: "Estructura agregada", Retire: "Estructura retirada", Reinstate: "Estructura reintegrada", Measure: "Marcada como medida", Unmeasure: "Medición desmarcada", Submit: "Medidas radicadas", RecordTechnical: "Ficha técnica guardada", RecordSketch: "Croquis guardado", RecordActual: "Medidas de obra guardadas", ResolveComparison: "Comparación revisada", RecordModification: "Modificación registrada" };
-  const messages: Record<string, string> = { EngineeringAssigneeNotConfigured: "Falta configurar Authentication:EngineeringAssigneeSubject. La radicación no se ha cerrado.", MeasurementReportUnavailable: "No se pudo generar el expediente PDF. La radicación no se completó; revisa los croquis y reintenta.", MeasurementReportIntegrity: "El reporte no superó la verificación de integridad. Contacta al administrador.", InvalidMeasurementAssessment: "Revisa el motivo, la descripción y el croquis asociado. Guarda primero las medidas y el tipo de medida.", MeasurementRevisionConflict: "El checklist cambió en otra sesión. Revisa el estado actualizado antes de continuar.", MeasurementsLocked: "La toma de medidas ya no admite cambios.", MeasurementDocumentsChanged: "Los documentos cambiaron. Revisa los archivos antes de radicar.", MeasurementsIncomplete: "Completa las medidas y detalles técnicos antes de marcar Medido. Para radicar, todas las estructuras vigentes deben estar medidas.", InvalidMeasurementTechnical: "Revisa los campos técnicos y sus unidades; la altura de manija no puede superar el alto real.", InvalidMeasurementSketch: "El croquis excede los límites o su formato no es válido.", MeasurementSketchRateLimit: "Espera dos segundos antes de guardar otra versión del croquis.", MeasurementRequestConflict: "El reintento no coincide con la operación original." };
+  const labels: Record<string, string> = { Initialize: "Checklist iniciado", Add: "Estructura agregada", Retire: "Estructura retirada", Reinstate: "Estructura reintegrada", Measure: "Marcada como medida", Unmeasure: "Medición desmarcada", SubmitTranche: "Tramo radicado", Submit: "Medidas radicadas", RecordTechnical: "Ficha técnica guardada", RecordSketch: "Croquis guardado", RecordActual: "Medidas de obra guardadas", ResolveComparison: "Comparación revisada", RecordModification: "Modificación registrada" };
+  const messages: Record<string, string> = { EngineeringAssigneeNotConfigured: "Falta configurar Authentication:EngineeringAssigneeSubject. La radicación no se ha cerrado.", MeasurementReportUnavailable: "No se pudo generar el expediente PDF. La radicación no se completó; revisa los croquis y reintenta.", MeasurementReportIntegrity: "El reporte no superó la verificación de integridad. Contacta al administrador.", InvalidMeasurementAssessment: "Revisa el motivo, la descripción y el croquis asociado. Guarda primero las medidas y el tipo de medida.", MeasurementRevisionConflict: "El checklist cambió en otra sesión. Revisa el estado actualizado antes de continuar.", MeasurementsLocked: "La toma de medidas ya no admite cambios.", MeasurementDocumentsChanged: "Los documentos cambiaron. Revisa los archivos antes de radicar.", MeasurementsIncomplete: "Completa las medidas y detalles técnicos antes de marcar Medido. Para radicar, las estructuras de la entrega deben estar medidas.", InvalidMeasurementTechnical: "Revisa los campos técnicos y sus unidades; la altura de manija no puede superar el alto real.", InvalidMeasurementSketch: "El croquis excede los límites o su formato no es válido.", MeasurementSketchRateLimit: "Espera dos segundos antes de guardar otra versión del croquis.", MeasurementRequestConflict: "El reintento no coincide con la operación original." };
   return <section className="panel stack" aria-labelledby="measurements-title">
     <h2 id="measurements-title" className="section-title">Toma de medidas</h2>
     <p>Responsable: {user?.subject === data.responsibleSubject ? user.name ?? "Cuenta de Instalación asignada" : "Cuenta de Instalación asignada"} · {data.taskStatus === "Completed" ? "Completada" : data.taskStatus === "Pending" ? "Pendiente" : "En curso"}</p>
@@ -109,7 +112,7 @@ export function MeasurementPanel({ projectId, onRefresh }: { projectId: string; 
       <p>Iniciales: {data.summary.initial} · Vigentes: {data.summary.active} · Medidas: {data.summary.measured} · Pendientes: {data.summary.pending} · Agregadas: {data.summary.added} · Retiradas: {data.summary.retired}</p>
       <label>Avance: {data.summary.progress}% <progress aria-label="Avance de medición" max={100} value={data.summary.progress} /></label>
       <div className={styles.cards}>{data.structures.filter(s => !s.retiredAt).map(s => <StructureCard
-        key={s.id} structure={s} projectId={projectId} writable={writable} disabled={disabled}
+        key={s.id} deliveryNumber={data.deliveries?.find(d => d.structureIds.includes(s.id))?.number} structure={s} projectId={projectId} writable={writable && !frozen.has(s.id) && !submittingTranche} disabled={disabled}
         saving={busy && pending?.action === "RecordActual" && pending.structureId === s.id}
         image={s.imageCatalogItemId ? drawings.images[s.imageCatalogItemId] : undefined} retryImage={drawings.retry}
         savedSketch={savedSketch?.structureId === s.id ? savedSketch : undefined}
@@ -134,7 +137,9 @@ export function MeasurementPanel({ projectId, onRefresh }: { projectId: string; 
         <button className="button-secondary" disabled={disabled || !uploads.length} onClick={() => void run("upload")}>Cargar documentos de medidas</button>
       </div>}
       <ul>{data.documents.map(d => <li key={d.id}><button className="text-link" disabled={busy} onClick={() => void download(d)}>{d.originalFileName}</button> · {d.contentType ?? "Archivo"} · {d.sizeBytes} bytes · {d.isCurrent ? "Vigente" : "Sustituido"}</li>)}</ul>
-      {writable && <button className="button-primary" disabled={disabled || dirtyIds.size > 0 || data.summary.active === 0 || data.summary.pending > 0 || !current.length} onClick={() => setConfirmation({ action: "Submit", documentIds: current.map(d => d.id) })}>Radicar medidas</button>}
+      {writable && !data.isIncremental && <button className="button-primary" disabled={disabled || dirtyIds.size > 0 || data.summary.active === 0 || data.summary.pending > 0 || !current.length} onClick={() => setConfirmation({ action: "Submit", documentIds: current.map(d => d.id) })}>Radicar medidas</button>}
+      {data.isIncremental && <IncrementalSubmissions key={`${projectId}:${activeRole}:${user?.subject}`} data={data} writable={writable} disabled={busy || !!pending} dirty={dirtyIds.size > 0} onBusy={setSubmittingTranche} onRefresh={async signal => { const fresh = await load(signal); if (signal.aborted) return; resource.update(fresh); await onRefresh(signal); }} />}
+      {data.deliveries && <DeliveryHistory projectId={projectId} deliveries={data.deliveries} />}
       {data.submissionId && <p role="status">Medidas radicadas · {formatDate(data.submittedAt!)} · {data.submissionId}. Checklist y documentos congelados para su consulta por Ingeniería.</p>}
       {data.snapshot?.report && <button className="button-secondary" disabled={busy} onClick={() => void downloadReport()}>Descargar reporte PDF de Instalación</button>}
     </>}

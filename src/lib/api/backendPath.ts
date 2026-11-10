@@ -5,7 +5,7 @@ export function isBackendPath(segments: string[]): boolean {
   if (segments[0] === "projects" && segments[2] === "engineering") return engineeringMethod(segments) !== null;
   if (segments[0] === "projects" && segments[2] === "measurements") {
     return /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(segments[1]) &&
-      (segments.length === 3 || (segments.length === 4 && ["initialize", "commands"].includes(segments[3])) ||
+      (segments.length === 3 || (segments.length === 4 && ["initialize", "commands", "submissions"].includes(segments[3])) ||
        (segments.length === 5 && segments[3] === "documents" && segments[4] === "batch") || isMeasurementSketchPath(segments) || isMeasurementReportPath(segments));
   }
   if (segments[0] === "projects" && segments[2] === "deposit-verifications") {

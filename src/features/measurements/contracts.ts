@@ -11,6 +11,7 @@ export type Comparison = { resolution: "Comparable" | "NotComparable"; reason: s
 export type Modification = { versionId: string; type: string; reason: string | null; description: string | null; sketchVersionId: string | null };
 export interface Structure extends SiteDetails { comparison?: Comparison | null; comparisonStatus?: "PendingReview" | "OverThreshold" | "NoDimensionalChange"; comparisonCurrent?: boolean; widthDifferenceMm?: number | null; heightDifferenceMm?: number | null; modification?: Modification | null; modificationComplete?: boolean; technical?: TechnicalDetails | null; technicalComplete?: boolean; sketchVersionId?: string | null; id: string; itemId: string | null; unitOrdinal: number; unitCount: number; itemNumber: string | null; description: string; location: string | null; width: number; height: number; note?: string | null; actualWidth?: number | null; actualHeight?: number | null; actualSystemText?: string | null; imageCatalogItemId?: string | null; createdAt: string; measuredAt: string | null; retiredAt: string | null }
 export interface MeasurementState {
+  isIncremental?: boolean; deliveries?: MeasurementDelivery[];
   projectId: string; taskId: string; taskStatus: string; responsibleSubject: string; canModify: boolean; checklistId: string | null; revision: number;
   summary: { initial: number; added: number; retired: number; active: number; measured: number; pending: number; progress: number };
   structures: Structure[]; documents: ProjectDocument[];
@@ -20,3 +21,14 @@ export interface MeasurementState {
 export interface ActualValues extends SiteDetails { width: number | null; height: number | null; systemText: string | null }
 export type MeasurementAction = { action: "ResolveComparison"; structureId: string; comparison: { resolution: "Comparable" | "NotComparable"; reason: string } } | { action: "RecordModification"; structureId: string; modification: { type: string; reason: string | null; description: string | null; sketchVersionId: string | null } } | { action: "RecordTechnical"; structureId: string; technical: TechnicalDetails } | { action: "RecordSketch"; structureId: string; sketch: { drawing: SketchDrawing; webp: string } } | ({ action: "RecordActual"; structureId: string; actualWidth: number; actualHeight: number; actualSystemText: string } & SiteDetails) | { action: "Measure"; structureId: string; measured: boolean } | { action: "Retire" | "Reinstate"; structureId: string } | { action: "Add"; description: string; width: number; height: number } | { action: "Submit"; documentIds: string[] };
 export type MeasurementCommand = MeasurementAction & { requestKey: string; expectedRevision: number };
+
+export interface MeasurementDelivery {
+  id: string; number: number; submittedAt: string; submittedBySubject: string;
+  evidenceStatus: "COMPLETE" | "LEGACY_INCOMPLETE_EVIDENCE"; scopeIssue: string | null;
+  reportAvailability: "PRESENT" | "ABSENT"; structureIds: string[];
+  documents: { documentId: string; fileName: string | null; sha256: string | null; structureIds: string[]; associatedAt: string | null; associatedBySubject: string | null }[];
+}
+export interface MeasurementSubmissionCommand {
+  requestKey: string; expectedRevision: number; structureIds: string[];
+  documents: { documentId: string; structureIds: string[] }[];
+}

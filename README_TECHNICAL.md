@@ -908,6 +908,18 @@ La selección de PDF y su carga son operaciones distintas. Se admiten Actas de h
 El BFF permite únicamente los métodos y rutas de Ingeniería declarados, propaga identidad/rol y conserva no-store. La radicación requiere `Authentication:EngineeringAssigneeSubject` en Backend; no se configura un Subject real en Frontend. La migración y la incorporación explícita de expedientes históricos siguen el procedimiento de Backend y no se ejecutan desde esta UI.
 
 
+## Instalación incremental y recepción por tramos
+
+`MeasurementPanel` usa `isIncremental` y `deliveries` de Backend. `IncrementalSubmissions` selecciona IDs físicos elegibles, impide envío con borradores pendientes, captura alcance documental explícito y exige confirmación. Envía POST `projects/{id}/measurements/submissions` con `requestKey`, `expectedRevision`, `structureIds` y `documents: [{ documentId, structureIds }]`. El límite del servidor es 500 estructuras y 15 documentos. No calcula transiciones ni evidencia.
+
+Una respuesta incierta conserva el comando y la clave exactos; bloquea acciones incompatibles hasta resolver el reintento. Un 4xx muestra el error y relee estado sin repetir escrituras. La UI no marca entregado antes del éxito. Cambio de rol/Subject y desmontaje cancelan trabajo local; los borradores ordinarios mantienen su comportamiento previo.
+
+`DeliveryHistory` presenta identidad del tramo, actor/fecha, integrantes, versiones documentales y hashes. Descarga el PDF persistido mediante GET `measurements/submissions/{submissionId}/report`, con nombre del servidor y no-store. `LEGACY_INCOMPLETE_EVIDENCE` y ausencia de PDF son condiciones distintas. Las tarjetas radicadas son de solo lectura; el resto del workspace sigue abierto.
+
+`EngineeringPanel` acepta el contrato incremental cerrado: `isIncremental=true`, `checklistId/submissionId=null`, `deliveries` y `origin: { submissionId, number, evidenceVersion }` por fila. Conserva PUT por estructura/revisión y lecturas oficiales. Oculta carga/cierre de Actas y no llama rutas históricas para ese modo. Backend además rechaza esos caminos; la UI no constituye autorización.
+
+Desplegar ambos consumidores y la migración Backend `EnableIncrementalMeasurements` antes de configurar el corte futuro UTC `Measurements:IncrementalNewProjectsFromUtc`. Sin corte, proyectos anteriores y checklists existentes siguen tradicionales. No hay configuración pública de Subjects, cambios de autorización ni migraciones ejecutadas por Frontend.
+
 ## Presentación y correcciones del Acta de Vanos
 
 El expediente incorpora Presentación del Acta de Vanos, selección de ronda, documento presentado, estructuras en orden, confirmaciones persistidas y duración de respuesta. Confirmar presentación exige confirmación explícita; el contador parte de timestamps y duración proporcionados por Backend y usa tiempo monotónico solo para refrescar la visualización. No constituye SLA ni crea vencimientos.

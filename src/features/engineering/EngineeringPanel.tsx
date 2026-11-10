@@ -8,6 +8,7 @@ import { ErrorNotice } from "@/lib/api/ErrorNotice";
 import { saveDownload } from "@/lib/api/saveDownload";
 import { documentBatch } from "@/features/documents/service";
 import { useMeasurementImages } from "@/features/measurements/StructureCard";
+import { DeliveryHistory } from "@/features/measurements/IncrementalSubmissions";
 import { metresToMm } from "@/features/measurements/units";
 import { technicalText } from "@/features/measurements/technicalText";
 import { formatDate } from "@/lib/formatDate";
@@ -32,10 +33,10 @@ export function EngineeringPanel({ projectId, onRefresh }: { projectId:string; o
  const [pending,setPending]=useState<Command>();const [busy,setBusy]=useState(false);const [error,setError]=useState<unknown>();const [notice,setNotice]=useState("");
  const [file,setFile]=useState<File>();const [confirm,setConfirm]=useState(false);
  const operation=useRef<AbortController|null>(null);
- useEffect(()=>()=>operation.current?.abort(),[projectId,activeRole]);
+ useEffect(()=>()=>operation.current?.abort(),[projectId,activeRole,user?.subject]);
  const writable=!!data?.canModify&&activeRole==="Engineering"&&user?.subject===data.responsibleSubject;
  async function run(command:Command) {
-  if(!writable||operation.current)return;
+  if(!writable||operation.current||(data?.isIncremental&&command.kind!=="check"))return;
   const controller=new AbortController();operation.current=controller;setBusy(true);setPending(command);setError(undefined);setNotice("");
   try {
    const options={signal:controller.signal};
@@ -64,28 +65,31 @@ export function EngineeringPanel({ projectId, onRefresh }: { projectId:string; o
  const label=(r:EngineeringRow)=>`${r.structure.itemId ? "Ítem "+r.structure.itemNumber : "Agregada en obra"} · Unidad ${r.structure.unitOrdinal}/${r.structure.unitCount}`;
  const errors:Record<string,string>={OpeningAdvisorNotConfigured:"El responsable comercial del proyecto debe tener membresía de Asesor configurada antes de cerrar Ingeniería.",EngineeringRevisionConflict:"El expediente cambió. Revisa el estado actualizado antes de reintentar.",EngineeringLocked:"Ingeniería ya está cerrada; el expediente es de solo lectura.",EngineeringIncomplete:"Completa todas las estructuras antes de finalizar.",EngineeringActaRequired:"Carga y verifica un Acta vigente antes de finalizar.",InvalidEngineeringPdf:"Selecciona un PDF válido, completo y de hasta 25 MiB.",EngineeringActaTooLarge:"El PDF supera 25 MiB.",EngineeringActaIntegrity:"El documento no superó la verificación de integridad.",EngineeringActaUnavailable:"El Acta no está disponible en almacenamiento.",EngineeringRequestConflict:"El reintento no coincide con la operación original."};
  return <section className="panel stack" aria-label="Ingeniería — Acta de Vanos">
- <h2>Ingeniería · Elaborar Acta de Vanos</h2><p>{data.taskStatus==="Completed"?"Completada · Solo lectura":"En curso · Sin plazo formal"} · Responsable: {data.responsibleSubject}</p>
+ <h2>{data.isIncremental ? "Ingeniería · Recepción por tramos" : "Ingeniería · Elaborar Acta de Vanos"}</h2><p>{data.taskStatus==="Completed"?"Completada · Solo lectura":"En curso · Sin plazo formal"} · Responsable: {data.responsibleSubject}</p>
  <p className="metadata">Inicio: {formatDate(data.startedAt)}{data.completedAt&&` · Finalización: ${formatDate(data.completedAt)}`}</p>
  <dl className={styles.facts}><div><dt>Estructuras</dt><dd>{data.total}</dd></div><div><dt>Completadas</dt><dd>{data.completed}</dd></div><div><dt>Pendientes</dt><dd>{data.pending}</dd></div><div><dt>Avance</dt><dd>{data.progress}%</dd></div></dl>
  {notice&&<p role="status">{notice}</p>}{error instanceof ApiError&&error.code&&errors[error.code]?<p role="alert">{errors[error.code]}</p>:<ErrorNotice error={error}/>}
  {pending&&!busy&&<button className="button-secondary" onClick={()=>void run(pending)}>Reintentar guardado seguro</button>}
+ {data.isIncremental&&<button className="button-secondary" disabled={disabled} onClick={()=>void resource.refresh()}>Actualizar estructuras recibidas</button>}
  <div className={styles.cards}>{data.structures.map(row=>{const s=row.structure;const image=s.imageCatalogItemId?drawings.images[s.imageCatalogItemId]:undefined;
  return <article className={`stack ${styles.card}`} key={s.id} aria-label={label(row)}>
  <h3>{label(row)}</h3><p>{s.actualLocation??s.location??"Ubicación sin registrar"} · {row.completed?"Completada":"Pendiente"}</p>
+ {row.origin&&<p>Tramo {String(row.origin.number).padStart(2,"0")} · {row.origin.submissionId} · Evidencia {row.origin.evidenceVersion}</p>}
  <EngineeringStructureDetails structure={s} projectId={projectId} image={image} retryImage={drawings.retry}/>
- <label className={styles.check}><input type="checkbox" checked={row.completed} disabled={!writable||disabled} onChange={e=>void run({kind:"check",id:s.id,requestKey:crypto.randomUUID(),expectedRevision:row.revision,completed:e.target.checked})}/>Estructura trabajada en Acta de Vanos</label>
+ <label className={styles.check}><input type="checkbox" checked={row.completed} disabled={!writable||disabled} onChange={e=>void run({kind:"check",id:s.id,requestKey:crypto.randomUUID(),expectedRevision:row.revision,completed:e.target.checked})}/>{data.isIncremental ? "Estructura revisada en Ingeniería" : "Estructura trabajada en Acta de Vanos"}</label>
  {busy&&pending?.kind==="check"&&pending.id===s.id&&<p role="status">Guardando estructura…</p>}
  </article>;})}</div>
- <section className={`stack ${styles.acta}`} aria-label="Documento — Acta de Vanos"><h3>Documento — Acta de Vanos</h3>
+ {!data.isIncremental&&<section className={`stack ${styles.acta}`} aria-label="Documento — Acta de Vanos"><h3>Documento — Acta de Vanos</h3>
  {writable&&<><label>Seleccionar Acta PDF<input className="form-control" type="file" accept=".pdf,application/pdf" disabled={disabled} onChange={e=>{setFile(e.target.files?.[0]);setError(undefined);}}/></label>
  {file&&<p>Seleccionado: {file.name} · {file.size} bytes · Aún no cargado</p>}
  <button className="button-primary" disabled={disabled||!file||!file.name.toLowerCase().endsWith(".pdf")||file.size===0||file.size>25*1024*1024} onClick={()=>file&&void run({kind:"upload",requestKey:crypto.randomUUID(),expectedRevision:data.revision,replaces:data.currentDocumentId,file})}>{data.currentDocumentId?"Cargar nueva versión del Acta":"Cargar Acta"}</button></>}
  {!data.documents.length&&<p>No hay Acta persistida.</p>}
  {data.documents.map(({document:d,version,sha256})=><div key={d.id}><strong>Versión {version} · {d.id===data.currentDocumentId?"Vigente":"Histórica"} · {d.originalFileName}</strong><p>{formatDate(d.uploadedAt)} · {d.uploadedBy.name??d.uploadedBy.email??"Responsable registrado"} · {d.sizeBytes} bytes</p><details><summary>Integridad SHA-256</summary><code>{sha256}</code></details><button className="button-secondary" disabled={busy} onClick={()=>void download(d.id,d.originalFileName)}>Descargar versión {version}</button></div>)}
- </section>
- {writable&&<div className="stack"><button className="button-primary" disabled={disabled||data.pending>0||!data.currentDocumentId} onClick={()=>setConfirm(true)}>Confirmar finalización de Ingeniería</button>
+ </section>}
+ {writable&&!data.isIncremental&&<div className="stack"><button className="button-primary" disabled={disabled||data.pending>0||!data.currentDocumentId} onClick={()=>setConfirm(true)}>Confirmar finalización de Ingeniería</button>
  {confirm&&<div role="dialog" aria-label="Confirmar cierre de Ingeniería"><p>Se congelarán los checks y el Acta vigente. No podrás modificarlos después.</p><button className="button-primary" disabled={disabled} onClick={()=>data.currentDocumentId&&void run({kind:"close",requestKey:crypto.randomUUID(),expectedRevision:data.revision,documentId:data.currentDocumentId})}>Finalizar Ingeniería</button><button className="button-secondary" disabled={busy} onClick={()=>setConfirm(false)}>Cancelar</button></div>}</div>}
- <details><summary>Historial de Ingeniería</summary>{data.history.map(h=><p key={h.revision}>{{Initialize:"Inicio",Check:"Estructura completada",Uncheck:"Estructura pendiente",UploadActa:"Acta cargada",Complete:"Finalización"}[h.action]??h.action} · {formatDate(h.at)} · {h.actor.name??h.actor.email??"Responsable registrado"}{h.reason&&` · ${h.reason}`}</p>)}</details>
+ {data.isIncremental&&<><p>Las entregas se reciben progresivamente. El cierre y envío comercial de Actas incrementales aún no están habilitados.</p><DeliveryHistory projectId={projectId} deliveries={data.deliveries??[]}/></>}
+ <details><summary>Historial de Ingeniería</summary>{data.history.map(h=><p key={`${h.structureId}:${h.revision}`}>{{Initialize:"Inicio",Check:"Estructura completada",Uncheck:"Estructura pendiente",UploadActa:"Acta cargada",Complete:"Finalización"}[h.action]??h.action} · {formatDate(h.at)} · {h.actor.name??h.actor.email??"Responsable registrado"}{h.reason&&` · ${h.reason}`}</p>)}</details>
  </section>;
 }
 

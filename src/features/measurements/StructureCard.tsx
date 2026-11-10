@@ -37,8 +37,8 @@ export function useMeasurementImages(projectId: string, structures: Structure[])
 
 type ActualDraft = { width: string; height: string; system: string; measurementType: MeasurementType | ""; location: string; observations: string };
 const actualKey = (value: ActualDraft) => JSON.stringify({ width: value.width.trim() === "" ? "" : Number(value.width), height: value.height.trim() === "" ? "" : Number(value.height), system: value.system.trim(), measurementType: value.measurementType, location: value.location.trim(), observations: value.observations.trim() });
-export function StructureCard({ structure: s, projectId, savedSketch, sectionAction, sectionFeedback, sketchFeedback, writable, disabled, saving, image, retryImage, onCommand, onRetire, onDirty }: {
-  savedSketch?: { versionId: string; drawing: SketchDrawing }; sectionAction?: string; sectionFeedback?: ReactNode; sketchFeedback?: ReactNode; projectId: string; structure: Structure; writable: boolean; disabled: boolean; saving: boolean; image?: ImageState; retryImage: () => void;
+export function StructureCard({ deliveryNumber, structure: s, projectId, savedSketch, sectionAction, sectionFeedback, sketchFeedback, writable, disabled, saving, image, retryImage, onCommand, onRetire, onDirty }: {
+  deliveryNumber?: number; savedSketch?: { versionId: string; drawing: SketchDrawing }; sectionAction?: string; sectionFeedback?: ReactNode; sketchFeedback?: ReactNode; projectId: string; structure: Structure; writable: boolean; disabled: boolean; saving: boolean; image?: ImageState; retryImage: () => void;
   onCommand: (action: MeasurementAction) => void; onRetire: () => void; onDirty: (id: string, dirty: boolean) => void;
 }) {
   const [assessmentDirty, setAssessmentDirty] = useState<Record<string, boolean>>({});
@@ -58,6 +58,7 @@ export function StructureCard({ structure: s, projectId, savedSketch, sectionAct
   const handleConflict = s.technical?.handleHeightMm != null && Number(height) > 0 && Number(height) < s.technical.handleHeightMm;
   const valid = Number.isFinite(Number(width)) && Number(width) > 0 && Number.isFinite(Number(height)) && Number(height) > 0 && !!system.trim() && system.length <= 2000;
   return <article className={`panel stack ${styles.card}`} aria-label={`Estructura ${s.id}`}>
+    {deliveryNumber && <p>Radicada en Tramo {String(deliveryNumber).padStart(2, "0")} - Evidencia congelada</p>}
     <section className={`stack ${styles.cardSection}`}><h3>1. Referencia de cotización</h3>
     <strong>{s.itemId ? `Ítem ${s.itemNumber ?? ""} · ${s.unitOrdinal}/${s.unitCount}` : "Agregada en obra"} · {s.id.slice(0, 8)}</strong>
     {s.location && <p>{s.location}</p>}
