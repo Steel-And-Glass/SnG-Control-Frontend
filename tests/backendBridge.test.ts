@@ -315,3 +315,20 @@ describe("controlled backend bridge", () => {
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1]));
   });
 });
+
+
+describe("incremental Engineering closed routes",()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ const root=["projects",id,"engineering"];
+ it.each([["workspace","commands"],["opening-records",id,"documents"]])("forwards only POST on %s",async(...tail)=>{
+  const segments=[...root,...tail];expect((await forwardBackend(request("POST","{}","application/json"),segments)).status).toBe(200);
+  fetchMock.mockClear();expect((await forwardBackend(request(),segments)).status).toBe(405);expect(fetchMock).not.toHaveBeenCalled();
+ });
+ it("streams an Acta-specific PDF as an attachment",async()=>{
+  fetchMock.mockResolvedValue(new Response("%PDF-synthetic",{headers:{"Content-Type":"application/pdf","Content-Disposition":'attachment; filename="acta.pdf"'}}));
+  const response=await forwardBackend(request(),[...root,"opening-records",id,"documents",id,"download"]);expect(response.status).toBe(200);expect(response.headers.get("Content-Type")).toBe("application/pdf");expect(await response.text()).toBe("%PDF-synthetic");
+ });
+ it.each([["opening-records",id,"confirm"],["workspace","anything"],["opening-records","bad-id","documents"],["opening-records",id,"documents",id,"execute"]])("rejects unknown Engineering operations",async(...tail)=>{
+  expect((await forwardBackend(request("POST"),[...root,...tail])).status).toBe(400);expect(fetchMock).not.toHaveBeenCalled();
+ });
+});

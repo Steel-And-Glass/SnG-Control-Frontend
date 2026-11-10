@@ -1,9 +1,10 @@
+import { parseWorkspace, type EngineeringWorkspace, type EngineeringWork } from "./workspaceContracts";
 import type { MeasurementDelivery, Structure } from "@/features/measurements/contracts";
 import type { ProjectDocument, DocumentActor } from "@/features/documents/types";
 import { ApiError } from "@/lib/api/apiError";
-export interface EngineeringRow { structure: Structure; revision: number; completed: boolean; changedAt: string | null; origin?: { submissionId: string; number: number; evidenceVersion: number } }
+export interface EngineeringRow { work?: EngineeringWork; structure: Structure; revision: number; completed: boolean; changedAt: string | null; origin?: { submissionId: string; number: number; evidenceVersion: number } }
 export interface EngineeringState {
- isIncremental?: true; deliveries?: MeasurementDelivery[];
+ workspace?: EngineeringWorkspace; isIncremental?: true; deliveries?: MeasurementDelivery[];
  projectId: string; checklistId: string | null; submissionId: string | null; taskId: string; taskStatus: "InProgress" | "Completed";
  responsibleSubject: string; canModify: boolean; startedAt: string; completedAt: string | null; revision: number;
  total: number; completed: number; pending: number; progress: number; structures: EngineeringRow[];
@@ -15,7 +16,7 @@ export function parseEngineering(value: unknown, projectId: string): Engineering
  if (!value || typeof value !== "object" || Array.isArray(value)) return fail();
  const v = value as EngineeringState;
  const keys = ["projectId","checklistId","submissionId","taskId","taskStatus","responsibleSubject","canModify","startedAt","completedAt","revision","total","completed","pending","progress","structures","documents","currentDocumentId","history"];
- if (v.isIncremental === true) keys.push("isIncremental", "deliveries");
+ if (v.isIncremental === true) keys.push("isIncremental", "deliveries", "workspace");
  if (Object.keys(v).length !== keys.length || keys.some(k => !Object.hasOwn(v,k)) || v.projectId !== projectId
    || !(v.isIncremental ? [v.taskId,v.responsibleSubject] : [v.checklistId,v.submissionId,v.taskId,v.responsibleSubject]).every(x => typeof x === "string" && !!x)
    || !["InProgress","Completed"].includes(v.taskStatus) || typeof v.canModify !== "boolean"
@@ -24,6 +25,7 @@ export function parseEngineering(value: unknown, projectId: string): Engineering
    || !Array.isArray(v.structures) || !Array.isArray(v.documents) || !Array.isArray(v.history)
    || v.structures.length !== v.total || v.completed + v.pending !== v.total) return fail();
  if (v.isIncremental && (v.checklistId !== null || v.submissionId !== null || v.taskStatus !== "InProgress" || v.completedAt !== null || v.currentDocumentId !== null || v.documents.length || !Array.isArray(v.deliveries))) return fail();
+ if (v.isIncremental) parseWorkspace(v.workspace, v.structures);
  for (const r of v.structures) {
    if (v.isIncremental && (!r.origin || Object.keys(r.origin).length !== 3 || typeof r.origin.submissionId !== "string" || !Number.isSafeInteger(r.origin.number) || r.origin.number < 1 || r.origin.evidenceVersion !== 1)) return fail();
    const s = r?.structure;

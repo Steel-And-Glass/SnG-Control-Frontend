@@ -135,7 +135,7 @@ export async function forwardBackend(request: Request, segments: string[]): Prom
     const contentType = response.headers.get("Content-Type") ?? "";
     const mediaType = contentType.split(";")[0].trim().toLowerCase();
     const documentFile = request.method === "GET" && isDocumentFilePath(segments);
-    if ((segments[2] === "opening-records" && segments[3] === "documents" && segments[5] === "download") || isMeasurementReportPath(segments) || (segments[2] === "engineering" && segments[3] === "acta" && segments[5] === "download")) {
+    if ((segments[2] === "opening-records" && segments[3] === "documents" && segments[5] === "download") || isMeasurementReportPath(segments) || (segments[2] === "engineering" && ((segments[3] === "acta" && segments[5] === "download") || (segments[3] === "opening-records" && segments[7] === "download")))) {
       if (mediaType !== "application/pdf") return problem(502);
       responseHeaders.set("Content-Type", "application/pdf"); responseHeaders.set("X-Content-Type-Options", "nosniff");
       const filename = downloadFilename(response.headers.get("Content-Disposition"));

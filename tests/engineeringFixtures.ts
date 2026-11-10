@@ -9,3 +9,9 @@ export const engineeringState:EngineeringState={
  documents:[],currentDocumentId:null,history:[]
 };
 export const engineeringDoc={id:"33333333-3333-4333-8333-333333333333",originalFileName:"acta.pdf",contentType:"application/pdf",sizeBytes:256,uploadedAt:engineeringDate,uploadedBy:{name:"Ingeniero",email:null},uploadBatchId:engineeringId,isCurrent:true,replacedAt:null,replacedByDocumentId:null,inInitialHandoff:false};
+
+export function incrementalEngineering():EngineeringState {
+ const structures=engineeringState.structures.map(r=>({...r,origin:{submissionId:engineeringId,number:1,evidenceVersion:1},work:{packageId:engineeringId,responsibleSubject:user.subject,canModify:true,changedBySubject:null,openingRecordId:null}}));
+ const refs=structures.map(r=>({structureId:r.structure.id,submissionId:engineeringId,evidenceVersion:1}));
+ return {...engineeringState,checklistId:null,submissionId:null,isIncremental:true,deliveries:[],structures,workspace:{projectName:"Proyecto de prueba",sgCode:"SG9001",revision:0,canManagePackages:true,assignableSubjects:[user.subject,"synthetic-engineer-two"],packages:[{id:engineeringId,isIntake:true,status:"Open",revision:0,responsibleSubject:user.subject,createdAt:engineeringDate,assignedAt:engineeringDate,completedAt:null,structures:refs,history:[{id:engineeringId,subject:user.subject,assignedAt:engineeringDate,endedAt:null,structures:refs}]}],actas:[],history:[]}};
+}

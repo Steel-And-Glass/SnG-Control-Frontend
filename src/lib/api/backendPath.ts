@@ -77,6 +77,9 @@ export function isMeasurementReportPath(segments: string[]): boolean {
 export function engineeringMethod(s: string[]): "GET" | "PUT" | "POST" | null {
   const guid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
   if (s[0] !== "projects" || !guid.test(s[1]) || s[2] !== "engineering") return null;
+  if (s.length === 5 && s[3] === "workspace" && s[4] === "commands") return "POST";
+  if (s.length === 6 && s[3] === "opening-records" && guid.test(s[4]) && s[5] === "documents") return "POST";
+  if (s.length === 8 && s[3] === "opening-records" && guid.test(s[4]) && s[5] === "documents" && guid.test(s[6]) && s[7] === "download") return "GET";
   if (s.length === 3) return "GET";
   if (s.length === 4 && ["acta", "complete", "initialize-historical"].includes(s[3])) return "POST";
   if (s.length === 6 && s[3] === "structures" && guid.test(s[4]) && s[5] === "check") return "PUT";

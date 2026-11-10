@@ -13,6 +13,7 @@ import { metresToMm } from "@/features/measurements/units";
 import { technicalText } from "@/features/measurements/technicalText";
 import { formatDate } from "@/lib/formatDate";
 import { parseEngineering, type EngineeringRow } from "./contracts";
+import { EngineeringWorkspace } from "./EngineeringWorkspace";
 import styles from "./EngineeringPanel.module.css";
 type Command = { kind: "check"; id: string; requestKey: string; expectedRevision: number; completed: boolean }
  | { kind: "close"; requestKey: string; expectedRevision: number; documentId: string }
@@ -31,12 +32,13 @@ export function EngineeringPanel({ projectId, onRefresh }: { projectId:string; o
  const load=useCallback(async(signal:AbortSignal)=>parseEngineering(await api.get<unknown>(path,{signal}),projectId),[api,path,projectId]);
  const resource=useResource(load);const data=resource.data;const drawings=useMeasurementImages(projectId,data?.structures.map(r=>r.structure)??[]);
  const [pending,setPending]=useState<Command>();const [busy,setBusy]=useState(false);const [error,setError]=useState<unknown>();const [notice,setNotice]=useState("");
+ const [workspaceBusy,setWorkspaceBusy]=useState(false);
  const [file,setFile]=useState<File>();const [confirm,setConfirm]=useState(false);
  const operation=useRef<AbortController|null>(null);
  useEffect(()=>()=>operation.current?.abort(),[projectId,activeRole,user?.subject]);
- const writable=!!data?.canModify&&activeRole==="Engineering"&&user?.subject===data.responsibleSubject;
+ const writable=!!data?.canModify&&activeRole==="Engineering"&&(data.isIncremental||user?.subject===data.responsibleSubject);
  async function run(command:Command) {
-  if(!writable||operation.current||(data?.isIncremental&&command.kind!=="check"))return;
+  if(!writable||workspaceBusy||operation.current||(data?.isIncremental&&command.kind!=="check"))return;
   const controller=new AbortController();operation.current=controller;setBusy(true);setPending(command);setError(undefined);setNotice("");
   try {
    const options={signal:controller.signal};
@@ -61,7 +63,7 @@ export function EngineeringPanel({ projectId, onRefresh }: { projectId:string; o
  if(resource.loading)return <p role="status">Consultando Ingeniería…</p>;
  if(resource.error)return <ErrorNotice error={resource.error} retry={resource.refresh}/>;
  if(!data)return null;
- const disabled=busy||!!pending;
+ const disabled=busy||!!pending||workspaceBusy;
  const label=(r:EngineeringRow)=>`${r.structure.itemId ? "Ítem "+r.structure.itemNumber : "Agregada en obra"} · Unidad ${r.structure.unitOrdinal}/${r.structure.unitCount}`;
  const errors:Record<string,string>={OpeningAdvisorNotConfigured:"El responsable comercial del proyecto debe tener membresía de Asesor configurada antes de cerrar Ingeniería.",EngineeringRevisionConflict:"El expediente cambió. Revisa el estado actualizado antes de reintentar.",EngineeringLocked:"Ingeniería ya está cerrada; el expediente es de solo lectura.",EngineeringIncomplete:"Completa todas las estructuras antes de finalizar.",EngineeringActaRequired:"Carga y verifica un Acta vigente antes de finalizar.",InvalidEngineeringPdf:"Selecciona un PDF válido, completo y de hasta 25 MiB.",EngineeringActaTooLarge:"El PDF supera 25 MiB.",EngineeringActaIntegrity:"El documento no superó la verificación de integridad.",EngineeringActaUnavailable:"El Acta no está disponible en almacenamiento.",EngineeringRequestConflict:"El reintento no coincide con la operación original."};
  return <section className="panel stack" aria-label="Ingeniería — Acta de Vanos">
@@ -75,10 +77,12 @@ export function EngineeringPanel({ projectId, onRefresh }: { projectId:string; o
  return <article className={`stack ${styles.card}`} key={s.id} aria-label={label(row)}>
  <h3>{label(row)}</h3><p>{s.actualLocation??s.location??"Ubicación sin registrar"} · {row.completed?"Completada":"Pendiente"}</p>
  {row.origin&&<p>Tramo {String(row.origin.number).padStart(2,"0")} · {row.origin.submissionId} · Evidencia {row.origin.evidenceVersion}</p>}
+ {row.work&&<p>Responsable: {row.work.responsibleSubject} · Paquete: {row.work.packageId}{row.changedAt&&` · Último check: ${formatDate(row.changedAt)} · ${row.work.changedBySubject??""}`}</p>}
  <EngineeringStructureDetails structure={s} projectId={projectId} image={image} retryImage={drawings.retry}/>
- <label className={styles.check}><input type="checkbox" checked={row.completed} disabled={!writable||disabled} onChange={e=>void run({kind:"check",id:s.id,requestKey:crypto.randomUUID(),expectedRevision:row.revision,completed:e.target.checked})}/>{data.isIncremental ? "Estructura revisada en Ingeniería" : "Estructura trabajada en Acta de Vanos"}</label>
+ <label className={styles.check}><input type="checkbox" checked={row.completed} disabled={!writable||disabled||(data.isIncremental&&!row.work?.canModify)} onChange={e=>void run({kind:"check",id:s.id,requestKey:crypto.randomUUID(),expectedRevision:row.revision,completed:e.target.checked})}/>{data.isIncremental ? "Estructura revisada en Ingeniería" : "Estructura trabajada en Acta de Vanos"}</label>
  {busy&&pending?.kind==="check"&&pending.id===s.id&&<p role="status">Guardando estructura…</p>}
  </article>;})}</div>
+ {data.isIncremental&&data.workspace&&<EngineeringWorkspace state={data} blocked={busy||!!pending} onBusy={setWorkspaceBusy} refresh={async(signal)=>{resource.update(await load(signal));await onRefresh(signal);}}/>}
  {!data.isIncremental&&<section className={`stack ${styles.acta}`} aria-label="Documento — Acta de Vanos"><h3>Documento — Acta de Vanos</h3>
  {writable&&<><label>Seleccionar Acta PDF<input className="form-control" type="file" accept=".pdf,application/pdf" disabled={disabled} onChange={e=>{setFile(e.target.files?.[0]);setError(undefined);}}/></label>
  {file&&<p>Seleccionado: {file.name} · {file.size} bytes · Aún no cargado</p>}
@@ -88,7 +92,7 @@ export function EngineeringPanel({ projectId, onRefresh }: { projectId:string; o
  </section>}
  {writable&&!data.isIncremental&&<div className="stack"><button className="button-primary" disabled={disabled||data.pending>0||!data.currentDocumentId} onClick={()=>setConfirm(true)}>Confirmar finalización de Ingeniería</button>
  {confirm&&<div role="dialog" aria-label="Confirmar cierre de Ingeniería"><p>Se congelarán los checks y el Acta vigente. No podrás modificarlos después.</p><button className="button-primary" disabled={disabled} onClick={()=>data.currentDocumentId&&void run({kind:"close",requestKey:crypto.randomUUID(),expectedRevision:data.revision,documentId:data.currentDocumentId})}>Finalizar Ingeniería</button><button className="button-secondary" disabled={busy} onClick={()=>setConfirm(false)}>Cancelar</button></div>}</div>}
- {data.isIncremental&&<><p>Las entregas se reciben progresivamente. El cierre y envío comercial de Actas incrementales aún no están habilitados.</p><DeliveryHistory projectId={projectId} deliveries={data.deliveries??[]}/></>}
+ {data.isIncremental&&<><p>Las entregas se reciben progresivamente. El envío comercial de Actas incrementales aún no está habilitado.</p><DeliveryHistory projectId={projectId} deliveries={data.deliveries??[]}/></>}
  <details><summary>Historial de Ingeniería</summary>{data.history.map(h=><p key={`${h.structureId}:${h.revision}`}>{{Initialize:"Inicio",Check:"Estructura completada",Uncheck:"Estructura pendiente",UploadActa:"Acta cargada",Complete:"Finalización"}[h.action]??h.action} · {formatDate(h.at)} · {h.actor.name??h.actor.email??"Responsable registrado"}{h.reason&&` · ${h.reason}`}</p>)}</details>
  </section>;
 }

@@ -7,7 +7,7 @@ import { EngineeringPanel } from "@/features/engineering/EngineeringPanel";
 import { parseEngineering, type EngineeringState } from "@/features/engineering/contracts";
 import type { MeasurementState } from "@/features/measurements/contracts";
 import { mockBackend, renderOperational, deferred } from "./operationalFixtures";
-import { engineeringState, engineeringId as id, engineeringDate as date, engineeringDoc } from "./engineeringFixtures";
+import { incrementalEngineering, engineeringState, engineeringId as id, engineeringDate as date, engineeringDoc } from "./engineeringFixtures";
 import { user } from "./fixtures";
 
 const installer = { ...user, roles: ["Installation" as const] };
@@ -92,10 +92,10 @@ it("refreshes a conflict without retrying or showing a successful delivery", asy
   expect(screen.queryByText("Tramo radicado y recibido por Ingeniería.")).not.toBeInTheDocument();
 });
 it("Engineering receives origins and checks while exposing no legacy upload or closure", async () => {
-  const state: EngineeringState = { ...engineeringState, checklistId: null, submissionId: null, isIncremental: true, deliveries: [], structures: engineeringState.structures.map(r => ({ ...r, origin: { submissionId: id, number: 1, evidenceVersion: 1 } })) };
+  const state: EngineeringState = incrementalEngineering();
   mockBackend(() => state); renderOperational(<EngineeringPanel projectId={id} onRefresh={vi.fn()} />, { ...user, roles: ["Engineering"] });
   expect(await screen.findByRole("heading", { name: "Ingeniería · Recepción por tramos" })).toBeInTheDocument();
-  expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+  expect(screen.getAllByRole("checkbox", { name: "Estructura revisada en Ingeniería" })).toHaveLength(2);
   expect(screen.queryByLabelText("Seleccionar Acta PDF")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /finalización/ })).not.toBeInTheDocument();
   expect(() => parseEngineering({ ...state, checklistId: id }, id)).toThrow();

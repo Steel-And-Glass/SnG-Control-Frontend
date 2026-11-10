@@ -408,7 +408,7 @@ Management consulta sin controles de escritura. El rol activo sigue enviándose 
 
 La radicación exige estructuras vigentes, todas medidas, y documentos vigentes; congela los datos
 y completa la tarea sin SLA. Después se conserva el estado final al recargar. No implementa Acta
-de Vanos ni habilita una tarea de Ingeniería. Rutas BFF cerradas bajo
+de Vanos; la radicación posterior habilita el espacio de Ingeniería. Rutas BFF cerradas bajo
 `projects/{id}/measurements`: GET, POST initialize, POST commands y POST documents/batch.
 Los documentos no se interpretan automáticamente ni modifican precios o la cotización original.
 
@@ -437,7 +437,7 @@ los trazos se recuperan del Backend y las vistas previas son blobs autenticados 
 salir. Límite 200 trazos/20000 puntos (2000 por trazo), WEBP 1200 × 900 hasta 512 KB. Los comandos
 RecordTechnical/RecordSketch conservan revisión e idempotencia del checklist; el BFF permite
 solo lecturas de versiones bajo measurements/structures/{id}/sketches/{versionId} y /image.
-Retiradas/radicadas no se editan; el snapshot refiere versiones inmutables. No se implementa Ingeniería.
+Retiradas/radicadas no se editan; el snapshot refiere versiones inmutables. Ingeniería consume la evidencia radicada mediante el flujo descrito abajo.
 
 **Milímetros es la unidad de negocio de todas las longitudes de Steel & Glass.** Toda longitud
 visible/editable en Instalación está en mm. measurements/units.ts centraliza la conversión de
@@ -509,7 +509,7 @@ Cuando Backend identifica el checklist como incremental, Instalación puede sele
 
 Cada tramo conserva su PDF A3, documentos y alcance. «Radicaciones enviadas» muestra número, fecha, responsable, integrantes, evidencia y descarga autenticada. Un legado incompleto se indica expresamente; no se inventan integrantes ni PDFs.
 
-Ingeniería recibe las entregas en orden y guarda checks independientes sin perder el trabajo anterior. En este modo no ofrece carga de Acta, cierre global ni envío comercial. Los expedientes tradicionales conservan su circuito.
+Ingeniería recibe las entregas en orden y guarda checks independientes sin perder el trabajo anterior. En este modo permite paquetes y Actas independientes con PDF por Acta; no ofrece cierre global ni envío comercial. Los expedientes tradicionales conservan su circuito.
 
 La activación pertenece a Backend: solo proyectos nuevos posteriores al corte explícito `Measurements:IncrementalNewProjectsFromUtc`, con ambos consumidores desplegados. No hay interruptor local ni activación retroactiva desde esta UI.
 
@@ -524,3 +524,30 @@ Ingeniería reutiliza las fichas gráficas de solo lectura y revisa únicamente 
 El PDF firmado se selecciona y carga por separado. Aceptar exige todas las confirmaciones, documento persistido de la ronda actual, atestación del asesor de firma/correspondencia y confirmación final. El sistema no comprueba criptográficamente firmas ni deduce correspondencia por nombre. Tras aceptar se muestra Radicación de Vanos pendiente; no hay controles para ejecutarla. Detener proyecto está deshabilitado y carece de endpoint.
 
 BFF cerrado: GET `projects/{id}/opening-records`, POST `rounds/{roundId}/commands`, POST `rounds/{roundId}/documents` y GET `documents/{documentId}/download` bajo esa ruta. Conserva Google/rol activo, validación de GUID/método, PDF attachment y no-store. La incorporación histórica explícita sigue el procedimiento documentado en Backend, sin invocación automática en esta UI. No hay cambios financieros, de Instalación o de Intelligence.
+
+
+## Ingenieria incremental: paquetes y multiples Actas
+
+`EngineeringPanel` conserva la evidencia original, tarjetas y checks inmediatos. El espacio acumulativo
+presenta paquetes, responsables, historial de asignaciones y Actas con miembros de uno o varios tramos.
+`EngineeringWorkspace` confirma explicitamente creacion/reasignacion de paquetes, manifiestos,
+carga de PDF con alcance declarado, seleccion de versiones y confirmacion individual.
+
+Backend determina las capacidades por rol activo, Subject configurado y asignacion efectiva. El responsable
+principal configura paquetes usando solo las identidades devueltas por Backend; no existe una lista publica
+de Subjects ni administracion de empleados en Frontend. `EngineeringPackage` es una tarea sin SLA.
+
+Cada Acta conserva su ID, numero, evidencia, versiones documentales, hash, actor y fechas. Confirmar
+congela miembros, checks y PDF vigente; otras Actas y nuevas recepciones siguen disponibles. Se muestra
+"Confirmada por Ingenieria - Pendiente de habilitacion comercial incremental". No se crean rondas ni
+tareas comerciales incrementales. Los circuitos historicos siguen separados y no se regeneran PDFs.
+
+Rutas adicionales cerradas bajo `/projects/{id}/engineering`:
+- POST `workspace/commands`: CreatePackage, ReassignPackage, CreateActa, AddStructures, SelectDocument, ConfirmActa.
+- POST `opening-records/{actaId}/documents?requestKey&expectedRevision&scopeHash`: multipart PDF, maximo 25 MiB.
+- GET `opening-records/{actaId}/documents/{documentId}/download`: adjunto privado con nombre del servidor.
+
+Los comandos envian revision y clave idempotente. Ante resultado incierto se conserva exactamente la operacion;
+409 relee estado y requiere una decision nueva. Cambio de rol/desmontaje cancela solicitudes. Ningun PDF se
+interpreta en navegador; su alcance es una declaracion humana auditada, no verificacion semantica.
+El contrato incremental requiere despliegue coordinado con la migracion Backend `EnableIncrementalEngineering`.
