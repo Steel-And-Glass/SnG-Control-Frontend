@@ -997,3 +997,185 @@ Se conservan Authorization/rol activo, no-store, bytes y boundary multipart, san
 Requiere despliegue coordinado con `EnableIncrementalCommercialOpenings`; no aplicar a base operativa
 sin autorizacion. Las pruebas cubren omisiones pendientes, firma/alcance/atestacion, checks de revision,
 rondas de Actas distintas, cancelacion, reintento congelado, 409, roles de lectura y BFF PDF/multipart.
+
+## Validación integral del flujo incremental — Entrega 5
+
+Evidencia ejecutada el 10 de noviembre de 2026. Veredicto: **APTO CON RESERVAS**.
+El flujo central permite continuar hacia Radicación de Vanos. No acredita aptitud para
+producción: faltan smoke visual autenticado, validación del despliegue y seguridad operacional.
+No se implementó ni ejecutó Radicación de Vanos.
+
+### Línea base y alcance
+
+Ambos repositorios estaban en `feature/identity-areas-v1`: Frontend
+`c3f45b3b7e588254710cf9990d4ddea8028eda41` limpio y Backend
+`902c622823616cc4d651d5e20ab64af1ce1fcb70` con tres pruebas preexistentes sin seguimiento
+(`OpeningRecordServiceTests`, `DepositVerificationTests`, `OpeningRecordRoundTests`).
+Se preservaron y excluyeron de los commits. No se modificaron main, Intelligence, Cotizador,
+Experience ni los worktrees frontend-integrated (`abbc094`) y frontend-intelligence (`8bf541d`).
+
+La prueba usa PostgreSQL 17 temporal, base `verification_test`, puerto local 55485 y esquemas
+aleatorios por escenario. Almacenamiento documental y datos son sintéticos. La base operativa
+no recibió conexiones ni migraciones. La configuración del servidor HTTP de pruebas se vacía
+y se sustituye por configuración sintética; no usa Google ni servicios externos.
+
+`Measurements:IncrementalNewProjectsFromUtc` activa el modo nuevo para el proyecto sintético.
+Los expedientes históricos conservan su modo; no se promueven por su estado actual.
+
+### Escenario realmente ejecutado
+
+`IncrementalEndToEndTests` y `IncrementalHttpHarness` del Backend ejecutan controladores,
+autorización, servicios, EF, PostgreSQL y almacenamiento reales. Solo sustituyen autenticación
+externa por identidades sintéticas y reloj por `TimeProvider` controlado.
+Se ejecutó directamente por HTTP y después por el BFF Next real en localhost 3315 hacia el
+Backend sintético en 55486. El BFF se inició desde una copia temporal de src/public/configuración,
+sin copiar .env, con dependencias instaladas compartidas y webpack. No se detuvo el servidor
+de desarrollo del usuario. Esta copia no es un worktree ni cambia la aplicación publicada.
+
+| Etapa | Resultado comprobado |
+| --- | --- |
+| Instalación A | Diez unidades V1–V10; medidas, ficha técnica y croquis de V1–V4; tramo 01 exacto, PDF de dos páginas, cuatro congeladas y seis editables. |
+| Ingeniería A | Recepción exacta de cuatro; paquete asignado a worker, checks, Acta A y PDF; confirmación independiente; espacio abierto. |
+| Comercial A | Presentación explícita, primera respuesta a los 180 segundos del reloj controlado; acepta V1–V2 con PDF y atestación, solicita cambios de V3, V4 sigue pendiente. Una tarea de radicación por aceptación. |
+| Instalación B | Tramo 02 de V5–V10; PDF y snapshot del tramo 01 idénticos; diez recibidas sin perder cuatro checks. |
+| Ingeniería B | Acta B con V5–V6; tarea y ronda propias. |
+| Paralelismo | Presenta B y acepta V5; acepta V4 mientras Ingeniería marca la revisión de V3; declara V3, carga nueva versión A, cierra revisión, presenta ronda 2 y acepta V3 corregida. |
+| Final | Dos tramos, dos Actas, rondas A=2/B=1, cuatro aceptaciones y cuatro tareas pendientes de radicación, cinco unidades aceptadas y V6 pendiente. V7–V10 quedan recibidas sin Acta. Instalación e Ingeniería siguen abiertas. |
+
+Se verifican IDs, membresías, versiones de evidencia, referencias documentales, hashes,
+snapshots congelados, UTC, actores y relaciones de tareas. Los PDFs antiguos no se regeneran.
+`tests/fixtures/incremental-e2e/` contiene respuestas JSON sintéticas capturadas por ese BFF;
+`incremental-http-contracts.test.tsx` comprueba parsers cerrados y cambio entre Actas en la UI.
+No son expedientes privados ni contienen credenciales, SDP o audio.
+
+### Concurrencia, permisos y errores
+
+Las regresiones PostgreSQL existentes, ejecutadas en esta entrega, cubren radicaciones repetidas
+y disjuntas, checks de trabajadores distintos, reservas de Actas solapadas, cargas en competencia,
+aceptación frente a solicitud de cambios, respuestas disjuntas y fingerprints distintos.
+El E2E HTTP añade carreras del mismo check (204/409), doble confirmación y presentación con la
+misma clave, respuestas con claves distintas sobre la misma estructura (200/409), aceptación
+idempotente concurrente sin duplicar tarea y aceptación comercial simultánea con check de revisión.
+Los locks, restricciones y transacciones se ejercitan en PostgreSQL, no en un store en memoria.
+
+Se prueban 401 sin sesión, 403 por rol equivocado/no asignación/membresía efectiva revocada,
+descarga ajena y acceso documental cruzado entre Actas. Las pruebas de paquetes cubren trabajador
+no asignado y reasignación. Los reintentos conservan autorización; no permiten saltar permisos.
+La revocación de membresía en el E2E sustituye las opciones efectivas del servidor de prueba:
+**no prueba recarga en caliente**. Producción usa `IOptions`; los cambios de membresías configuradas
+requieren reiniciar el servicio. No se implementó un sistema nuevo de revocación.
+
+Se mantienen conflictos por evidencia obsoleta, atestación obligatoria, errores seguros,
+multipart intacto, PDF autenticado y no-store. Archivos firmados ausentes o corruptos bloquean
+la aceptación; restaurar sus bytes permite continuar. Un documento de otra Acta devuelve 404.
+El frontend conserva confirmaciones, relee 409 y no muestra éxito por una escritura fallida.
+
+### Documentos e historia
+
+Se inspeccionaron visualmente las cuatro páginas renderizadas de los dos PDFs sintéticos:
+A3 horizontal 1191 × 842 puntos, distribución 3+1 y 3+3, croquis, imágenes distinguibles por
+unidad, fichas técnicas, IDs y numeración Tramo 01/02. No se cambió la composición visual.
+Los PDFs usados como Acta, revisión y firma son archivos sintéticos válidos reutilizados para
+verificar bytes, versiones y alcance; no acreditan autenticidad de firma ni contenido técnico humano.
+
+`IncrementalFoundationTests` amplía la migración histórica con Acta presentada y revisión
+pendiente. Incluye proyecto sin medidas, medidas sin radicar, radicación antigua sin PDF,
+Ingeniería en curso/finalizada, rondas, firma, tarea de radicación pendiente y evidencia incompleta.
+Compara filas históricas, IDs, snapshots, hashes y bytes PDF almacenados antes/después; conserva
+tareas y aceptaciones, rechaza promoción artificial de `LEGACY_INCOMPLETE_EVIDENCE` y distingue
+ausencia de PDF de ausencia/insuficiencia de miembros. La migración no oculta errores de evidencia completa.
+
+Cadena EF verificada: 28 migraciones, sin cambios pendientes de modelo. Las cuatro incrementales:
+
+- `20261110154907_AddIncrementalFlowFoundation`
+- `20261110161757_EnableIncrementalMeasurements`
+- `20261110184921_EnableIncrementalEngineering`
+- `20261110192609_EnableIncrementalCommercialOpenings`
+
+No se creó ni modificó ninguna migración.
+
+### Seguridad de Next.js
+
+Next y eslint-config-next pasaron de 16.4.0 a **16.4.5**, verificado en paquete instalado y lockfile.
+Se conservan React 19.3.0, Node 24, TypeScript y las otras dependencias directas; cambian transitivas
+resueltas por Next y su preset. La actualización está separada de las pruebas de integración.
+
+El [aviso oficial del 14 de octubre](https://nextjs.org/blog/nextjs-security-update-october-14-2026)
+incluye RCE con Cache Components, optimizador SVG y DoS de Server Actions, corregidos desde 16.4.1.
+Los avisos de noviembre elevan el mínimo para esta línea a 16.4.5: entre ellos,
+[framing HTTP en App Router](https://github.com/vercel/next.js/security/advisories/GHSA-pc58-hwjq-p385),
+[cookies de middleware Edge](https://github.com/vercel/next.js/security/advisories/GHSA-f3mh-rxg3-f5g2)
+y [bypass SVG](https://github.com/vercel/next.js/security/advisories/GHSA-7qx7-33qx-rqx2).
+Sus rangos afectados incluyen Next 16.0.0–16.4.4.
+No se encontraron Cache Components, use cache/use server, runtime Edge ni next/image/next/og
+en el código de la aplicación. Hay App Router y proxy BFF; este reconstruye headers permitidos.
+Esto reduce algunas precondiciones, pero no sustituye el parche ni la validación del proxy de despliegue.
+
+`pnpm audit --prod` tras actualizar: cero avisos. Auditoría completa: nueve avisos
+(cuatro altos, cinco moderados) en herramientas de desarrollo: ocho de undici 8.11.2 vía jsdom
+(corrección >=8.12.2) y uno de minimatch (corrección >=11.0.1).
+Quedan documentados para remediación separada y validada; no se aplicaron overrides ni una
+actualización mayor indiscriminada. El resultado de auditoría no garantiza ausencia de vulnerabilidades.
+
+### Validaciones y límites
+
+| Comando/escenario | Resultado |
+| --- | --- |
+| Frontend focalizado, seis archivos | 53 tests aprobados |
+| Frontend completo | 1433 tests, 74 archivos aprobados |
+| pnpm lint / typecheck / build | Aprobados; build Next 16.4.5 |
+| Backend E2E HTTP y BFF | Aprobados contra PostgreSQL temporal |
+| Backend histórico/incremental focalizado | 6 tests aprobados, incluidos checks auxiliares de Ingeniería y Comercial |
+| Backend completo | 1238 aprobados, 11 omitidos, cero fallos |
+| Backend Release | Cero errores y advertencias |
+| EF list / has-pending-model-changes | 28 migraciones; modelo alineado |
+| git diff --check | Aprobado en ambos repositorios |
+
+Las 11 omisiones son pruebas opt-in anteriores: ocho de PostgreSQL para quotation status/read,
+shared access, portfolio, money migration, client decision, requotation y accounting, que requieren
+sus variables/bases específicas; tres de corpus financiero/imágenes XLSX fuera de Git.
+No se conectaron a bases existentes ni se usaron expedientes privados para activarlas.
+Las pruebas incrementales, migración histórica, verificación de depósito y E2E sí estuvieron activas.
+
+No se encontró un defecto funcional nuevo del flujo en los escenarios ejecutados. Los cambios
+son el parche de seguridad y regresiones permanentes de integración/historia. No se cambió negocio.
+Las reservas son smoke visual completo, Google corporativo, despliegue/TLS/proxy/almacenamiento,
+revocación operacional de permisos y avisos de dependencias de desarrollo.
+
+### Smoke manual pendiente
+
+El host de navegador automatizado devolvió `The browser access host is unavailable`.
+Solo había ventanas nativas, incluida una sesión operativa; no se usó esa sesión para generar datos.
+Se ejecutaron como alternativa HTTP+BFF real, PostgreSQL, Testing Library con respuestas reales
+y revisión visual de PDFs. Eso **no equivale** a smoke visual autenticado/responsive.
+
+En un entorno de ensayo aislado con diez unidades V1–V10 y cuentas autorizadas de Instalación,
+responsable/trabajador de Ingeniería y asesor asignado:
+
+1. Instalación: completar V1–V4, adjuntar croquis y seleccionar solo cuatro. Cancelar y luego
+   confirmar Tramo 01; comprobar bloqueo durante envío, cuatro congeladas, seis editables,
+   historial, recarga y PDF 3+1 con Tramo 01.
+2. Ingeniería: comprobar recepción de cuatro, asignar paquete al trabajador, marcar checks,
+   crear Acta A, cargar PDF y confirmar. Cambiar a otra cuenta: no debe poder editar el paquete.
+3. Asesor: presentar A; seleccionar V1–V2, cargar firmado, atestar y aceptar. Verificar una tarea
+   pendiente. Solicitar cambios de V3; V4 debe continuar pendiente tras recargar.
+4. Instalación: completar V5–V10 y confirmar Tramo 02. Comparar PDF/snapshot del primer tramo;
+   Ingeniería mantiene sus checks y recibe seis. Crear y confirmar B con V5–V6.
+5. Asesor: presentar B y aceptar V5. Volver a A y aceptar V4 sin alterar B. En Ingeniería,
+   revisar V3, declarar cambio, cargar nueva versión de A y cerrar revisión.
+6. Asesor: presentar ronda 2 de A y aceptar V3 con el nuevo firmado. Verificar tres aceptaciones
+   de A, una de B, cuatro tareas pendientes y V6 aún pendiente; no ejecutar radicación.
+7. Cambiar entre Actas/rondas y recargar: no deben mezclarse selección, formularios, documentos,
+   tiempos ni tareas. Comprobar historial y descargas con cuenta permitida y denegada.
+8. Provocar conflicto con dos pestañas, caída temporal y doble clic: errores claros, escritura
+   no duplicada, reintento original explícito y selección nueva tras 409. No inferir éxito.
+9. Repetir selección/confirmación con teclado, foco visible y viewport estrecho; revisar carga,
+   diálogos, textos largos y ausencia de recortes. Registrar navegador, cuentas de ensayo,
+   resultados y hashes sin tokens ni datos privados.
+
+Para repetir la automatización, crear una base temporal nueva y establecer únicamente
+`SNG_VERIFICATION_TEST_DATABASE` hacia ella; ejecutar `dotnet test --filter IncrementalEndToEndTests`.
+`SNG_E2E_ARTIFACTS` exporta evidencia sintética fuera de Git. Opcionalmente,
+`SNG_E2E_BFF_URL=http://127.0.0.1:3315/api/backend/` usa un Next aislado cuyo
+`SNG_API_BASE_URL=http://127.0.0.1:55486`; el harness levanta el backend sintético en ese puerto.
+No apuntar estas variables a servicios operativos. El cierre elimina procesos propios, no otros servicios.
