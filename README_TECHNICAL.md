@@ -6,7 +6,7 @@
 | --- | --- |
 | Node.js | 24.16.0; proyecto compatible con Node 24 |
 | pnpm | 11.5.0 |
-| Next.js / eslint-config-next | 16.4.0 |
+| Next.js / eslint-config-next | 16.4.5 |
 | React / React DOM | 19.3.0 |
 | TypeScript | 5.9.3, strict |
 | Tailwind CSS / @tailwindcss/postcss | 4.3.3 |
