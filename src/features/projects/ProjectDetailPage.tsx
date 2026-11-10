@@ -1,4 +1,5 @@
 "use client";
+import { CommercialOpeningPanel } from "@/features/engineering/CommercialOpeningPanel";
 import { OpeningRecordPanel } from "@/features/engineering/OpeningRecordPanel";
 import { EngineeringPanel } from "@/features/engineering/EngineeringPanel";
 import { MeasurementPanel } from "@/features/measurements/MeasurementPanel";
@@ -56,6 +57,7 @@ function ProjectDetailContent({ id }: { id: string }) {
     canRemove: canEditDocuments && documentResource.data.canRemove,
     canSendToBudgets: activeRole === "CommercialAdvisor" && canEditDocuments && documentResource.data.canSendToBudgets,
   } : documentResource.data };
+  const [incrementalOpening, setIncrementalOpening] = useState<boolean>();
   const [documentBusy, setDocumentBusy] = useState(false);
   const [quotationBusy, setQuotationBusy] = useState(false);
   const [quotationRevision, setQuotationRevision] = useState(0);
@@ -169,8 +171,9 @@ function ProjectDetailContent({ id }: { id: string }) {
     {data && <>
       <ProjectHeader project={data.project} clientName={data.client.name} />
       <ProjectStatusStrip tasks={engineeringView ? data.tasks.filter(t => ["PrepareOpeningRecord","ReviewOpeningRecord","FileOpeningRecord", "EngineeringPackage"].includes(t.type)) : installationView ? data.tasks.filter(t => t.type === "TakeMeasurements") : data.tasks} />
-      {data.tasks.some(t => t.type === "PresentOpeningRecord") && <div className={styles.documents}><OpeningRecordPanel key={`opening:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
-      {data.tasks.some(t => t.type === "PrepareOpeningRecord") && <div className={styles.documents}><EngineeringPanel key={`engineering:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated} /></div>}
+      {incrementalOpening===true && <div className={styles.documents}><CommercialOpeningPanel key={data.tasks.filter(t=>t.type==="PresentOpeningRecord").map(t=>t.id).join(":")} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
+      {incrementalOpening===false && data.tasks.some(t => t.type === "PresentOpeningRecord") && <div className={styles.documents}><OpeningRecordPanel key={`opening:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
+      {data.tasks.some(t => t.type === "PrepareOpeningRecord") && <div className={styles.documents}><EngineeringPanel key={`engineering:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated} onMode={setIncrementalOpening} /></div>}
       {(activeRole === "Installation" || activeRole === "Management") && data.tasks.some(t => t.type === "TakeMeasurements") && <div className={styles.documents}><MeasurementPanel key={`${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated} /></div>}
       {showAccounting && data.tasks.some(t => t.type === "PresentQuotationToClient" || t.type === "RegisterInitialDeposit") && <div className={styles.documents}><AccountingPanel key={`accounting:${id}:${activeRole}`} projectId={id} tasks={data.tasks} onRefresh={refreshQuotationRelated} /></div>}
       {!installationView && !engineeringView && activeRole !== "Accounting" && preparation && <div className={styles.documents}><QuotationRoundsPanel key={`history:${quotationRevision}`} projectId={id} tasks={data.tasks} onRefresh={refreshQuotationRelated} /></div>}

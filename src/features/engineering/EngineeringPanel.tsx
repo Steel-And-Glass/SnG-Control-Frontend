@@ -27,10 +27,11 @@ function SketchImage({ path }: { path: string }) {
  <img className={styles.picture} src={url} alt="Croquis radicado de Instalación" />
   : <p>{failed ? <button className="button-secondary" onClick={()=>setRetry(n=>n+1)}>Reintentar croquis</button> : "Cargando croquis…"}</p>;
 }
-export function EngineeringPanel({ projectId, onRefresh }: { projectId:string; onRefresh:(signal:AbortSignal)=>Promise<void> }) {
+export function EngineeringPanel({ projectId, onRefresh, onMode }: { projectId:string; onRefresh:(signal:AbortSignal)=>Promise<void>; onMode?:(incremental:boolean)=>void }) {
  const api=useApiClient();const {activeRole,user}=useAuth();const path=`projects/${projectId}/engineering`;
  const load=useCallback(async(signal:AbortSignal)=>parseEngineering(await api.get<unknown>(path,{signal}),projectId),[api,path,projectId]);
  const resource=useResource(load);const data=resource.data;const drawings=useMeasurementImages(projectId,data?.structures.map(r=>r.structure)??[]);
+ useEffect(()=>{if(data)onMode?.(data.isIncremental===true);},[data,onMode]);
  const [pending,setPending]=useState<Command>();const [busy,setBusy]=useState(false);const [error,setError]=useState<unknown>();const [notice,setNotice]=useState("");
  const [workspaceBusy,setWorkspaceBusy]=useState(false);
  const [file,setFile]=useState<File>();const [confirm,setConfirm]=useState(false);
@@ -92,7 +93,7 @@ export function EngineeringPanel({ projectId, onRefresh }: { projectId:string; o
  </section>}
  {writable&&!data.isIncremental&&<div className="stack"><button className="button-primary" disabled={disabled||data.pending>0||!data.currentDocumentId} onClick={()=>setConfirm(true)}>Confirmar finalización de Ingeniería</button>
  {confirm&&<div role="dialog" aria-label="Confirmar cierre de Ingeniería"><p>Se congelarán los checks y el Acta vigente. No podrás modificarlos después.</p><button className="button-primary" disabled={disabled} onClick={()=>data.currentDocumentId&&void run({kind:"close",requestKey:crypto.randomUUID(),expectedRevision:data.revision,documentId:data.currentDocumentId})}>Finalizar Ingeniería</button><button className="button-secondary" disabled={busy} onClick={()=>setConfirm(false)}>Cancelar</button></div>}</div>}
- {data.isIncremental&&<><p>Las entregas se reciben progresivamente. El envío comercial de Actas incrementales aún no está habilitado.</p><DeliveryHistory projectId={projectId} deliveries={data.deliveries??[]}/></>}
+ {data.isIncremental&&<><p>Las entregas se reciben progresivamente. Cada Acta confirmada genera su propia tarea comercial.</p><DeliveryHistory projectId={projectId} deliveries={data.deliveries??[]}/></>}
  <details><summary>Historial de Ingeniería</summary>{data.history.map(h=><p key={`${h.structureId}:${h.revision}`}>{{Initialize:"Inicio",Check:"Estructura completada",Uncheck:"Estructura pendiente",UploadActa:"Acta cargada",Complete:"Finalización"}[h.action]??h.action} · {formatDate(h.at)} · {h.actor.name??h.actor.email??"Responsable registrado"}{h.reason&&` · ${h.reason}`}</p>)}</details>
  </section>;
 }

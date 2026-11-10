@@ -509,11 +509,11 @@ Cuando Backend identifica el checklist como incremental, Instalación puede sele
 
 Cada tramo conserva su PDF A3, documentos y alcance. «Radicaciones enviadas» muestra número, fecha, responsable, integrantes, evidencia y descarga autenticada. Un legado incompleto se indica expresamente; no se inventan integrantes ni PDFs.
 
-Ingeniería recibe las entregas en orden y guarda checks independientes sin perder el trabajo anterior. En este modo permite paquetes y Actas independientes con PDF por Acta; no ofrece cierre global ni envío comercial. Los expedientes tradicionales conservan su circuito.
+Ingeniería recibe las entregas en orden y guarda checks independientes sin perder el trabajo anterior. En este modo permite paquetes y Actas independientes con PDF por Acta; no ofrece cierre global; cada confirmación crea su recepción comercial independiente. Los expedientes tradicionales conservan su circuito.
 
 La activación pertenece a Backend: solo proyectos nuevos posteriores al corte explícito `Measurements:IncrementalNewProjectsFromUtc`, con ambos consumidores desplegados. No hay interruptor local ni activación retroactiva desde esta UI.
 
-## Presentación y correcciones del Acta de Vanos
+## Presentación y correcciones del Acta de Vanos (flujo histórico)
 
 El expediente incorpora Presentación del Acta de Vanos, selección de ronda, documento presentado, estructuras en orden, confirmaciones persistidas y duración de respuesta. Confirmar presentación exige confirmación explícita; el contador parte de timestamps y duración proporcionados por Backend y usa tiempo monotónico solo para refrescar la visualización. No constituye SLA ni crea vencimientos.
 
@@ -539,8 +539,8 @@ de Subjects ni administracion de empleados en Frontend. `EngineeringPackage` es 
 
 Cada Acta conserva su ID, numero, evidencia, versiones documentales, hash, actor y fechas. Confirmar
 congela miembros, checks y PDF vigente; otras Actas y nuevas recepciones siguen disponibles. Se muestra
-"Confirmada por Ingenieria - Pendiente de habilitacion comercial incremental". No se crean rondas ni
-tareas comerciales incrementales. Los circuitos historicos siguen separados y no se regeneran PDFs.
+"Confirmada por Ingenieria". Cada confirmacion crea su tarea comercial y ronda inicial.
+Los circuitos historicos siguen separados y no se regeneran PDFs.
 
 Rutas adicionales cerradas bajo `/projects/{id}/engineering`:
 - POST `workspace/commands`: CreatePackage, ReassignPackage, CreateActa, AddStructures, SelectDocument, ConfirmActa.
@@ -551,3 +551,42 @@ Los comandos envian revision y clave idempotente. Ante resultado incierto se con
 409 relee estado y requiere una decision nueva. Cambio de rol/desmontaje cancela solicitudes. Ningun PDF se
 interpreta en navegador; su alcance es una declaracion humana auditada, no verificacion semantica.
 El contrato incremental requiere despliegue coordinado con la migracion Backend `EnableIncrementalEngineering`.
+
+## Comercial incremental: Actas, respuestas y aceptaciones parciales
+
+`CommercialOpeningPanel` presenta todas las Actas confirmadas del proyecto, sus rondas independientes,
+PDFs, estados por estructura y tiempos oficiales del servidor (sin SLA; actualizar relee el contador).
+ProjectDetail selecciona este circuito solo cuando Engineering confirma isIncremental; nunca monta
+el formulario historico de aprobacion implicita en un proyecto incremental. Nuevas tareas comerciales
+refrescan el panel. Actas confirmadas antes de habilitar Comercial permiten recepcion explicita.
+
+Solo el asesor asignado con rol CommercialAdvisor activo presenta y responde. Las estructuras omitidas
+conservan su estado; seleccionar unidades no las confirma. Solicitar cambios requiere motivo por unidad.
+Confirmar una aceptacion parcial exige PDF firmado persistido, seleccion cubierta por su alcance/version,
+atestacion humana y confirmacion final. Cargar PDF no acepta nada. Un PDF puede reutilizarse para distintos
+subconjuntos sin copiar bytes. Cada aceptacion muestra su tarea independiente de Radicacion de Vanos;
+no existen controles para ejecutarla ni para detener el proyecto. Otros lectores ven solo informacion.
+
+Engineering asignado tiene checks inmediatos de revision, declaracion de lo realmente cambiado y carga
+de PDF completo. Una revision abierta por Acta agrupa motivos sucesivos; nuevos pedidos invalidan
+la declaracion/PDF y reinician solo checks afectados. Se permite responder otras pendientes durante
+la revision. El cierre abre otra ronda, conserva aprobaciones no afectadas y pendientes no respondidas.
+Los datos de Instalacion son el origen inmutable; la evidencia tecnica revisada es el PDF versionado.
+Una estructura ya liberada no admite revision/reliberacion incompatible ni revocaciones automaticas.
+
+`commercialOpeningContracts.ts` valida el contrato cerrado y referencias; `commercialOpeningService.ts`
+centraliza lecturas, comandos, multipart manifest+file y descarga. Cada operacion congela su clave,
+revisiones, seleccion y archivo para reintentar resultado incierto. Un 409 relee estado y exige nueva
+seleccion; no repite escrituras. Cambios de identidad/rol desmontan la experiencia y abortan solicitudes.
+Backend decide permisos, estados, tiempos y evidencia; no se recalculan deadlines ni aprobaciones.
+
+BFF cerrado bajo `projects/{id}/incremental-opening-records`:
+- GET raiz.
+- POST `{actaId}/commands`.
+- POST `{actaId}/rounds/{roundId}/documents` (manifest JSON primero, un PDF de hasta 25 MiB).
+- GET `{actaId}/documents/{documentId}/download` (PDF privado attachment, filename del servidor).
+
+Se conservan Authorization/rol activo, no-store, bytes y boundary multipart, sanitizacion y origen fijo.
+Requiere despliegue coordinado con `EnableIncrementalCommercialOpenings`; no aplicar a base operativa
+sin autorizacion. Las pruebas cubren omisiones pendientes, firma/alcance/atestacion, checks de revision,
+rondas de Actas distintas, cancelacion, reintento congelado, 409, roles de lectura y BFF PDF/multipart.

@@ -29,6 +29,24 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 
+describe("closed incremental commercial opening bridge",()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ const root=["projects",id,"incremental-opening-records"];
+ it("forwards commands with the owned role and no-store, but rejects undeclared operations",async()=>{
+  expect((await POST(request("POST",JSON.stringify({action:"Present"}),"application/json"),context([...root,id,"commands"]))).status).toBe(200);
+  expect(fetchMock.mock.calls[0][1]).toMatchObject({method:"POST",cache:"no-store"});
+  fetchMock.mockClear();expect((await PUT(request("PUT","{}","application/json"),context([...root,id,"commands"]))).status).toBe(405);
+  expect((await POST(request("POST"),context([...root,id,"stop"]))).status).toBe(400);expect(fetchMock).not.toHaveBeenCalled();
+ });
+ it("preserves multipart boundary and bytes and returns private PDF attachments",async()=>{
+  const content="--scope\r\nContent-Disposition: form-data; name=\"file\"; filename=\"signed.pdf\"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.4 synthetic\r\n--scope--\r\n";
+  fetchMock.mockImplementationOnce(async(_,init)=>{expect(new Headers(init?.headers).get("Content-Type")).toBe("multipart/form-data; boundary=scope");expect(await new Response(init?.body).text()).toBe(content);return new Response(null,{status:204});});
+  expect((await POST(request("POST",content,"multipart/form-data; boundary=scope"),context([...root,id,"rounds",id,"documents"]))).status).toBe(204);
+  fetchMock.mockResolvedValueOnce(new Response("%PDF synthetic",{headers:{"Content-Type":"application/pdf","Content-Disposition":"attachment; filename=signed.pdf"}}));
+  const response=await GET(request(),context([...root,id,"documents",id,"download"]));expect(response.status).toBe(200);expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");expect(response.headers.get("Cache-Control")).toBe("no-store");expect(await response.text()).toBe("%PDF synthetic");
+ });
+});
+
 describe("controlled backend bridge", () => {
   it.each(["overview", "tasks"])("allows GET management/%s with existing query/header handling", async (endpoint) => {
     expect((await GET(request(), context(["management", endpoint]))).status).toBe(200);

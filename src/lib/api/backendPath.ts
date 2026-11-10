@@ -1,6 +1,7 @@
 export const backendRoots = ["clients", "projects", "project-tasks", "notifications"] as const;
 
 export function isBackendPath(segments: string[]): boolean {
+  if (segments[2] === "incremental-opening-records") return commercialOpeningMethod(segments) !== null;
   if (segments[2] === "opening-records") return openingRecordMethod(segments) !== null;
   if (segments[0] === "projects" && segments[2] === "engineering") return engineeringMethod(segments) !== null;
   if (segments[0] === "projects" && segments[2] === "measurements") {
@@ -25,6 +26,17 @@ export function isBackendPath(segments: string[]): boolean {
     && backendRoots.some((root) => root === segments[0])
     && segments.every((segment) => segment.length <= 200
       && /^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/.test(segment));
+}
+
+export function commercialOpeningMethod(s:string[]): "GET"|"POST"|null {
+ const guid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+ if(s[0]!=="projects"||!guid.test(s[1])||s[2]!=="incremental-opening-records")return null;
+ if(s.length===3)return "GET";
+ if(!guid.test(s[3]))return null;
+ if(s.length===5&&s[4]==="commands")return "POST";
+ if(s.length===7&&s[4]==="rounds"&&guid.test(s[5])&&s[6]==="documents")return "POST";
+ if(s.length===7&&s[4]==="documents"&&guid.test(s[5])&&s[6]==="download")return "GET";
+ return null;
 }
 
 export function isBudgetQuotationPath(segments: string[]): boolean {
