@@ -171,6 +171,7 @@ function ProjectDetailContent({ id }: { id: string }) {
     {data && <>
       <ProjectHeader project={data.project} clientName={data.client.name} />
       <ProjectStatusStrip tasks={engineeringView ? data.tasks.filter(t => ["PrepareOpeningRecord","ReviewOpeningRecord","FileOpeningRecord", "EngineeringPackage"].includes(t.type)) : installationView ? data.tasks.filter(t => t.type === "TakeMeasurements") : data.tasks} />
+      {data.tasks.some(t=>t.type==="FileOpeningRecord")&&<Link className="text-link" href={`/projects/${id}/opening-filings`}>Consultar todas las radicaciones de Vanos</Link>}
       {incrementalOpening===true && <div className={styles.documents}><CommercialOpeningPanel key={data.tasks.filter(t=>t.type==="PresentOpeningRecord").map(t=>t.id).join(":")} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
       {incrementalOpening===false && data.tasks.some(t => t.type === "PresentOpeningRecord") && <div className={styles.documents}><OpeningRecordPanel key={`opening:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
       {data.tasks.some(t => t.type === "PrepareOpeningRecord") && <div className={styles.documents}><EngineeringPanel key={`engineering:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated} onMode={setIncrementalOpening} /></div>}

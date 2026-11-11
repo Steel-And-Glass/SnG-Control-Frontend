@@ -13,7 +13,7 @@ function actaState(){const s=incrementalEngineering();const a:EngineeringActa={i
 it("creates a package only after confirmation and sends exact evidence and configured subject",async()=>{
  const state=incrementalEngineering();const gate=deferred<Response>();const fetch=mockBackend((_p,init)=>init.method==="POST"?gate.promise:state);
  renderOperational(<EngineeringPanel projectId={id} onRefresh={vi.fn()}/>,engineer);
- const selection=await screen.findAllByRole("checkbox",{name:/Seleccionar V1/});await userEvent.click(selection[0]);await userEvent.selectOptions(screen.getByRole("combobox",{name:"Responsable de paquete"}),"synthetic-engineer-two");
+ const selection=await screen.findAllByRole("checkbox",{name:/Seleccionar V1/});await userEvent.click(selection[0]);await userEvent.selectOptions(screen.getByRole("combobox",{name:"Responsable de paquete o Acta"}),"synthetic-engineer-two");
  await userEvent.click(screen.getByRole("button",{name:"Crear paquete de trabajo"}));expect(fetch.mock.calls.filter(c=>c[1].method==="POST")).toHaveLength(0);
  await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:/Confirmar operaci/}));
  const post=fetch.mock.calls.find(c=>c[1].method==="POST")!;expect(JSON.parse(post[1].body as string)).toMatchObject({action:"CreatePackage",subject:"synthetic-engineer-two",expectedRevision:0,structures:[{structureId:state.structures[0].structure.id,submissionId:id,evidenceVersion:1}]});
@@ -46,4 +46,18 @@ it("rejects unknown workspace fields, foreign evidence, duplicate membership and
 it("409 refreshes state and requires a new deliberate operation without automatic write retry",async()=>{
  const state=actaState();let writes=0;mockBackend((_p,init)=>{if(init.method==="POST"){writes++;return Response.json({code:"EngineeringRevisionConflict"},{status:409});}return state;});renderOperational(<EngineeringPanel projectId={id} onRefresh={vi.fn()}/>,engineer);
  await userEvent.click(await screen.findByRole("button",{name:"Confirmar Acta 1"}));await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:/Confirmar operaci/}));await screen.findByRole("alert");expect(writes).toBe(1);expect(screen.queryByRole("button",{name:/Reintentar operaci/})).not.toBeInTheDocument();
+});
+
+it("renders Acta responsibility without granting ownership of the rest of its package",async()=>{
+ const s=actaState();const a=s.workspace!.actas[0];a.structures=a.structures.slice(0,1);a.documents[0].structures=a.structures;
+ s.workspace!.packages[0].responsibleSubject="another-synthetic-engineer";s.workspace!.canManagePackages=false;s.workspace!.assignableSubjects=[];
+ s.structures[1].work={...s.structures[1].work!,responsibleSubject:"another-synthetic-engineer",openingRecordId:null,canModify:false};
+ expect(parseEngineering(s,id).workspace!.actas[0].responsibleSubject).toBe(user.subject);mockBackend(()=>s);renderOperational(<EngineeringPanel projectId={id} onRefresh={vi.fn()}/>,engineer);
+ const checks=await screen.findAllByRole("checkbox",{name:/Estructura revisada/});expect(checks[0]).toBeEnabled();expect(checks[1]).toBeDisabled();expect(screen.queryByRole("button",{name:"Crear Acta de Vanos"})).not.toBeInTheDocument();
+});
+it("head explicitly selects and confirms an Acta reassignment",async()=>{
+ const s=actaState();const fetch=mockBackend((_,init)=>init.method==="POST"?new Response(null,{status:204}):s);renderOperational(<EngineeringPanel projectId={id} onRefresh={vi.fn()}/>,engineer);
+ await userEvent.selectOptions(await screen.findByRole("combobox",{name:"Responsable de paquete o Acta"}),"synthetic-engineer-two");await userEvent.click(screen.getByRole("button",{name:/Reasignar Acta 1/}));expect(fetch.mock.calls.filter(c=>c[1].method==="POST")).toHaveLength(0);
+ await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:/Confirmar operaci/}));await waitFor(()=>expect(fetch.mock.calls.some(c=>c[1].method==="POST")).toBe(true));
+ expect(JSON.parse(fetch.mock.calls.find(c=>c[1].method==="POST")![1].body as string)).toMatchObject({action:"AssignActa",subject:"synthetic-engineer-two",targetId:s.workspace!.actas[0].id,expectedRevision:2,structures:null});
 });

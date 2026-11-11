@@ -350,3 +350,16 @@ describe("incremental Engineering closed routes",()=>{
   expect((await forwardBackend(request("POST"),[...root,...tail])).status).toBe(400);expect(fetchMock).not.toHaveBeenCalled();
  });
 });
+
+describe("closed opening filing bridge",()=>{
+ const id="11111111-1111-4111-8111-111111111111";const root=["projects",id,"opening-filings"];
+ it("preserves PDF bytes, attachment filename and no-store",async()=>{
+  const bytes=new Uint8Array([37,80,68,70,45,49]);fetchMock.mockResolvedValue(new Response(bytes,{headers:{"Content-Type":"application/pdf","Content-Disposition":"attachment; filename=technical.pdf"}}));
+  const result=await forwardBackend(request(),[...root,id,"versions",id,"documents",id,"download"]);
+  expect(result.status).toBe(200);expect(new Uint8Array(await result.arrayBuffer())).toEqual(bytes);expect(result.headers.get("Cache-Control")).toBe("no-store");expect(result.headers.get("Content-Disposition")).toContain("technical.pdf");
+ });
+ it("rejects unknown actions and methods before upstream",async()=>{
+  expect((await forwardBackend(request("PUT","{}","application/json"),[...root,id,"commands"])).status).toBe(405);
+  expect((await forwardBackend(request(),[...root,id,"admin"])).status).toBe(400);expect(fetchMock).not.toHaveBeenCalled();
+ });
+});

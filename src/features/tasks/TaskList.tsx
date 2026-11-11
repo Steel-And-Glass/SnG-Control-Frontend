@@ -48,6 +48,7 @@ export function TaskList({ tasks, projectNames, projectContext, compact = false 
   return <ul className="stack">{tasks.map((task) => <li key={task.id} className={`panel ${task.leadTimeStatus === "Overdue" ? "border-l-4 border-l-[var(--danger)]" : ""}`}>
     <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="stack"><div className="section-header"><h3 className="font-semibold">{taskTypeLabels[task.type]}</h3>{task.quotationRound && <span className="metadata">Ronda {task.quotationRound}</span>}<TaskStatusBadge task={task} /></div>
+        {task.type==="FileOpeningRecord"&&<Link className="text-link" href={`/projects/${encodeURIComponent(task.projectId)}/opening-filings?task=${encodeURIComponent(task.id)}`}>Abrir radicación de Vanos</Link>}
         {projectNames && <Link className="text-link break-words" href={`/projects/${encodeURIComponent(task.projectId)}`}>{projectNames.get(task.projectId) ?? "Abrir proyecto"}</Link>}
         {projectContext?.get(task.projectId) && <p className="metadata">Cliente: {projectContext.get(task.projectId)?.clientName ?? "No disponible"} · SG: {projectContext.get(task.projectId)?.sgCode ?? "Sin asignar"}</p>}
         <p className="metadata">Área: {taskAreaLabels[task.area]}</p>

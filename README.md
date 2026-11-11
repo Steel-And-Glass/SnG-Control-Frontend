@@ -521,7 +521,7 @@ El asesor responsable confirma estructuras individualmente o selecciona pendient
 
 Ingeniería reutiliza las fichas gráficas de solo lectura y revisa únicamente unidades afectadas. Una declaración explícita permite incluir otras estructuras modificadas; deben completarse sus checks y cargarse un nuevo PDF asociado antes del cierre. El cierre abre otra ronda comercial conservando las confirmaciones no afectadas. El checklist inicial y sus documentos siguen históricos.
 
-El PDF firmado se selecciona y carga por separado. Aceptar exige todas las confirmaciones, documento persistido de la ronda actual, atestación del asesor de firma/correspondencia y confirmación final. El sistema no comprueba criptográficamente firmas ni deduce correspondencia por nombre. Tras aceptar se muestra Radicación de Vanos pendiente; no hay controles para ejecutarla. Detener proyecto está deshabilitado y carece de endpoint.
+El PDF firmado se selecciona y carga por separado. Aceptar exige todas las confirmaciones, documento persistido de la ronda actual, atestación del asesor de firma/correspondencia y confirmación final. El sistema no comprueba criptográficamente firmas ni deduce correspondencia por nombre. El circuito historico permanece en consulta; las aceptaciones incrementales enlazan al expediente de Radicacion de Vanos descrito abajo. Detener proyecto está deshabilitado y carece de endpoint.
 
 BFF cerrado: GET `projects/{id}/opening-records`, POST `rounds/{roundId}/commands`, POST `rounds/{roundId}/documents` y GET `documents/{documentId}/download` bajo esa ruta. Conserva Google/rol activo, validación de GUID/método, PDF attachment y no-store. La incorporación histórica explícita sigue el procedimiento documentado en Backend, sin invocación automática en esta UI. No hay cambios financieros, de Instalación o de Intelligence.
 
@@ -543,7 +543,7 @@ congela miembros, checks y PDF vigente; otras Actas y nuevas recepciones siguen 
 Los circuitos historicos siguen separados y no se regeneran PDFs.
 
 Rutas adicionales cerradas bajo `/projects/{id}/engineering`:
-- POST `workspace/commands`: CreatePackage, ReassignPackage, CreateActa, AddStructures, SelectDocument, ConfirmActa.
+- POST `workspace/commands`: CreatePackage, ReassignPackage, CreateActa (responsable explicito), AssignActa (solo Jefe), AddStructures, SelectDocument, ConfirmActa.
 - POST `opening-records/{actaId}/documents?requestKey&expectedRevision&scopeHash`: multipart PDF, maximo 25 MiB.
 - GET `opening-records/{actaId}/documents/{documentId}/download`: adjunto privado con nombre del servidor.
 
@@ -590,3 +590,32 @@ Se conservan Authorization/rol activo, no-store, bytes y boundary multipart, san
 Requiere despliegue coordinado con `EnableIncrementalCommercialOpenings`; no aplicar a base operativa
 sin autorizacion. Las pruebas cubren omisiones pendientes, firma/alcance/atestacion, checks de revision,
 rondas de Actas distintas, cancelacion, reintento congelado, 409, roles de lectura y BFF PDF/multipart.
+
+
+## Radicacion de Vanos
+
+La tarea FileOpeningRecord abre `/projects/{id}/opening-filings?task={taskId}`. La vista sin
+`task` lista todas las aceptaciones/radicaciones del proyecto, independientes entre si.
+El responsable asignado de Ingenieria guarda numero manual y correspondencias OP, carga varios
+PDF por categoria en sesiones sucesivas, sustituye archivos por nuevas versiones y retira
+archivos del borrador conservando historial. Siete categorias son obligatorias; Adicionales es
+opcional. Todas aceptan multiples PDF. Otros formatos no estan habilitados sin un validador
+adecuado. Los controles tecnicos de tamano y cuota pertenecen al backend.
+
+Confirmar requiere confirmacion explicita y respuesta oficial; congela el manifiesto y completa
+solo esa tarea. Una enmienda exige motivo y conserva versiones anteriores, numero e identidad.
+Versiones historicas y usuarios no asignados permanecen en consulta. Las fuentes (Acta aprobada,
+PDF firmado, medidas, ubicaciones y referencias) no se editan desde esta pantalla. Los croquis
+siguen consultables mediante la evidencia existente de Ingenieria en el proyecto.
+
+Solo el Jefe configurado por backend crea/asigna o reasigna Actas no confirmadas. La UI utiliza
+las identidades y capacidades oficiales, no roles inferidos por email. El responsable del Acta
+puede revisar sus integrantes aunque no sea propietario de sus paquetes; los controles de
+paquetes siguen rigiendo fuera del Acta. Cambios de rol/identidad cancelan operaciones y limpian
+el formulario. Reintentos inciertos conservan el request key; 409 recarga sin repetir el write.
+
+El BFF cierra metodos y rutas `opening-filings`, conserva multipart/PDF sin reconstruccion,
+Authorization y rol activo permitidos, no-store y errores sanitizados. El servidor valida la
+aceptacion exacta, miembros, OP, cuotas, hashes, revisiones y responsabilidad. La UI no calcula
+fabricacion ni interpreta PDFs. Produccion y Logistica reciben una representacion persistente
+versionada en backend; no se crean aqui sus operaciones ni checklists.
