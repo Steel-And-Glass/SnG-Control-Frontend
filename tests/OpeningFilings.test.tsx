@@ -1,3 +1,5 @@
+import browserFilingResponse from "./fixtures/openingFilings.browser.json";
+import dtoFilingResponse from "./fixtures/openingFilings.dto.json";
 import {AuthContext} from "@/features/auth/context/AuthProvider";
 import {StrictMode,useState,useContext} from "react";
 import {TaskList} from "@/features/tasks/TaskList";
@@ -13,7 +15,7 @@ import {user} from "./fixtures";
 import {engineeringState,engineeringId as id,engineeringDate as date} from "./engineeringFixtures";
 const engineer={...user,roles:["Engineering" as const]};
 const task="44444444-4444-4444-8444-444444444444";
-function state():Filings{return {projectName:"Synthetic project",sgCode:"SG120",filings:[{id,taskId:task,acceptanceId:id,openingRecordId:id,actaNumber:1,presentedDocumentId:id,signedDocumentId:id,acceptedAt:date,responsibleSubject:user.subject,status:"Pending",number:null,revision:0,canModify:true,blockedReason:null,structures:engineeringState.structures.map(r=>({structureId:r.structure.id,submissionId:id,evidenceVersion:1,source:r.structure})),versions:[],history:[]}]};}
+function state():Filings{return {projectName:"Synthetic project",sgCode:"SG120",filings:[{id,taskId:task,acceptanceId:id,openingRecordId:id,actaNumber:1,presentedDocumentId:id,signedDocumentId:id,acceptedAt:date,responsibleSubject:user.subject,status:"Pending",number:null,revision:0,canModify:true,blockedReason:null,structures:engineeringState.structures.map(r=>({structureId:r.structure.id,submissionId:id,evidenceVersion:1,source:{...r.structure,modification:null}})),versions:[],history:[]}]};}
 beforeEach(()=>vi.spyOn(window,"confirm").mockReturnValue(true));
 it("opens the assigned task with eight multi-file categories and saves exact OP identities",async()=>{
  const data=state();const gate=deferred<Response>();const fetch=mockBackend((_,init)=>init.method==="POST"?gate.promise:data);
@@ -112,4 +114,17 @@ it.each(["role","identity"])("discards an in-flight result after a %s change",as
  const old=deferred<Response>();let calls=0;let signal:AbortSignal|undefined;mockBackend((_,init)=>{if(++calls===1){signal=init.signal as AbortSignal;return old.promise;}return {...state(),projectName:"Current session"};});
  function Session(){const context=useContext(AuthContext)!;const [changed,setChanged]=useState(false);return <AuthContext.Provider value={{...context,activeRole:changed&&change==="role"?"Management":context.activeRole,user:changed&&change==="identity"?{...engineer,subject:"another-synthetic-subject"}:engineer}}><button onClick={()=>setChanged(true)}>Switch session</button><OpeningFilingsPage projectId={id} taskId={task}/></AuthContext.Provider>;}
  renderOperational(<Session/>,engineer);await userEvent.click(screen.getByRole("button",{name:"Switch session"}));await screen.findByText("Current session");expect(signal?.aborted).toBe(true);await act(async()=>old.resolve(Response.json(state())));expect(screen.queryByText("Synthetic project")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"Guardar borrador"})).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("renders the browser 200 legacy filing read-only instead of a connection error",async()=>{
+ const data=structuredClone(browserFilingResponse);mockBackend(()=>data);
+ renderOperational(<OpeningFilingsPage projectId={id} taskId={data.filings[0].taskId}/>,{...engineer,subject:data.filings[0].responsibleSubject});
+ await screen.findByRole("button",{name:"Descargar PDF firmado"});expect(screen.getByRole("alert")).toHaveTextContent(/Evidencia hist/);
+ expect(screen.queryByText(/No pudimos comunicarnos/)).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"Guardar borrador"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"Confirmar radicación"})).not.toBeInTheDocument();expect(screen.queryByLabelText(/A.adir/)).not.toBeInTheDocument();expect(screen.queryByLabelText(/N.mero de radicado/)).not.toBeInTheDocument();
+});
+it("keeps the backend DTO incremental filing editable with modification evidence and supports upload",async()=>{
+ const data=structuredClone(dtoFilingResponse);const first=data.filings[0];const forms:FormData[]=[];
+ mockBackend((_,init)=>{if(init.body instanceof FormData){forms.push(init.body);first.revision++;return new Response(null,{status:204});}return data;});
+ renderOperational(<OpeningFilingsPage projectId={id} taskId={first.taskId!}/>,{...engineer,subject:first.responsibleSubject});
+ await screen.findByRole("button",{name:"Guardar borrador"});await userEvent.upload(screen.getByLabelText(/A.adir archivos/),new File(["opaque"],"evidence.txt",{type:"text/plain"}));await waitFor(()=>expect(forms).toHaveLength(1));expect(screen.queryByText(/No pudimos comunicarnos/)).not.toBeInTheDocument();
 });

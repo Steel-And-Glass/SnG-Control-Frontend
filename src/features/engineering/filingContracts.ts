@@ -1,11 +1,16 @@
 import { ApiError } from "@/lib/api/apiError";
-import type { Structure } from "@/features/measurements/contracts";
+import type { Structure, Comparison, Modification, MeasurementType } from "@/features/measurements/contracts";
 export const filingCategories = { Structures:"01 — Lista de Estructuras", Sections:"02 — Secciones", Plans:"03 — Planos", UnoptimizedCutList:"04 — Lista de Corte No Optimizada", Glass:"05 — Vidrios", Materials:"06 — Materiales", GlassModulation:"07 — Modulación de Vidrios", Additional:"Documentos Adicionales" } as const;
 export type FilingCategory=keyof typeof filingCategories;
 export type FilingOp={structureId:string;code:string;confirmed:boolean};
 export type FilingDocument={documentId:string;category:FilingCategory;version:number;state:"Current"|"Replaced"|"Withdrawn";name:string;sizeBytes:number;sha256:string;uploadedAt:string;uploadedBySubject:string;contentType:string|null};
 export type FilingVersion={id:string;number:number;reason:string|null;createdAt:string;createdBySubject:string;confirmedAt:string|null;confirmedBySubject:string|null;manifestSha256:string|null;members:FilingOp[];documents:FilingDocument[]};
-export type Filing={id:string;taskId:string|null;acceptanceId:string;openingRecordId:string;actaNumber:number;presentedDocumentId:string;signedDocumentId:string;acceptedAt:string;responsibleSubject:string;status:"Pending"|"Preparing"|"Confirmed";number:string|null;revision:number;canModify:boolean;blockedReason:"LEGACY_INCOMPLETE_EVIDENCE"|null;structures:{structureId:string;submissionId:string;evidenceVersion:number;source:Structure}[];versions:FilingVersion[];history:{action:string;at:string;actorSubject:string}[]};
+// Historical snapshots mirror the backend DTO, including opaque modification evidence.
+export type FilingSource = Omit<Structure,"comparison"|"modification"> & {
+ comparison?: (Omit<Comparison,"measurementType"|"width"|"height"> & {measurementType:MeasurementType|null;width:number|null;height:number|null}) | null;
+ modification?: (Modification & {evidence:string}) | null;
+};
+export type Filing={id:string;taskId:string|null;acceptanceId:string;openingRecordId:string;actaNumber:number;presentedDocumentId:string;signedDocumentId:string;acceptedAt:string;responsibleSubject:string;status:"Pending"|"Preparing"|"Confirmed";number:string|null;revision:number;canModify:boolean;blockedReason:"LEGACY_INCOMPLETE_EVIDENCE"|null;structures:{structureId:string;submissionId:string;evidenceVersion:number;source:FilingSource}[];versions:FilingVersion[];history:{action:string;at:string;actorSubject:string}[]};
 export type Filings={projectName:string;sgCode:string|null;filings:Filing[]};
 export type FilingCommand={requestKey:string;expectedRevision:number;action:"Save"|"Withdraw"|"Confirm"|"Amend";number:string|null;members:FilingOp[]|null;documentId:string|null;reason:string|null};
 export type FilingUpload={requestKey:string;expectedRevision:number;category:FilingCategory;replacesDocumentId:string|null};
@@ -25,8 +30,14 @@ function sourceValid(s:unknown):boolean {
  for(const key of ["itemId","itemNumber","location","note","actualSystemText","imageCatalogItemId","sketchVersionId","actualLocation","installationObservations"])if(s[key]!==undefined&&s[key]!==null&&(typeof s[key]!=="string"||(s[key] as string).length>4000))return false;
  for(const key of ["width","height","actualWidth","actualHeight","widthDifferenceMm","heightDifferenceMm"])if(s[key]!==undefined&&s[key]!==null&&(typeof s[key]!=="number"||!Number.isFinite(s[key])))return false;
  if(s.technical!=null&&(!object(s.technical)||Object.keys(s.technical).some(k=>!"handleStatus handleHeightMm viewSide openingType openingDirection openingHand hasAlfajia alfajiaMeasurementMm isComplete isFullyComplete".split(" ").includes(k))||Object.values(s.technical).some(v=>v!==null&&!["string","number","boolean"].includes(typeof v))))return false;
- if(s.comparison!=null&&(!exact(s.comparison,"resolution reason measurementType width height")||!object(s.comparison)||!Number.isFinite(s.comparison.width)||!Number.isFinite(s.comparison.height)))return false;
- if(s.modification!=null&&!exact(s.modification,"versionId type reason description sketchVersionId"))return false;
+ if(s.comparison!=null){
+  const c=s.comparison;
+  if(!exact(c,"resolution reason measurementType width height")||!object(c)||!["Comparable","NotComparable"].includes(c.resolution as string)||!text(c.reason)||![null,"Agreed","Production","Opening"].includes(c.measurementType as string|null)||![c.width,c.height].every(v=>v===null||(typeof v==="number"&&Number.isFinite(v))))return false;
+ }
+ if(s.modification!=null){
+  const m=s.modification;
+  if(!exact(m,"versionId type reason description sketchVersionId evidence")||!object(m)||!text(m.versionId)||!text(m.type)||![m.reason,m.description].every(v=>v===null||(typeof v==="string"&&v.length<=4000))||!nullable(m.sketchVersionId)||typeof m.evidence!=="string"||m.evidence.length>32768)return false;
+ }
  return true;
 }
 export function parseFilings(value:unknown):Filings {

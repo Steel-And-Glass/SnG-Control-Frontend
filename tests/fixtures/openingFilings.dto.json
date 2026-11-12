@@ -1,0 +1,146 @@
+{
+  "projectName": "DTO contract fixture",
+  "sgCode": "SG120",
+  "filings": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "taskId": "00000000-0000-4000-8000-000000000010",
+      "acceptanceId": "00000000-0000-4000-8000-000000000012",
+      "openingRecordId": "00000000-0000-4000-8000-000000000031",
+      "actaNumber": 1,
+      "presentedDocumentId": "00000000-0000-4000-8000-000000000041",
+      "signedDocumentId": "00000000-0000-4000-8000-000000000051",
+      "acceptedAt": "2026-11-05T15:00:00Z",
+      "responsibleSubject": "synthetic-engineer",
+      "status": "Pending",
+      "number": null,
+      "revision": 0,
+      "canModify": true,
+      "blockedReason": null,
+      "structures": [
+        {
+          "structureId": "00000000-0000-4000-8000-000000000020",
+          "submissionId": "00000000-0000-4000-8000-000000000024",
+          "evidenceVersion": 1,
+          "source": {
+            "id": "00000000-0000-4000-8000-000000000020",
+            "itemId": "00000000-0000-4000-8000-000000000021",
+            "unitOrdinal": 1,
+            "unitCount": 1,
+            "itemNumber": "V1",
+            "description": "Synthetic structure",
+            "location": "Synthetic location",
+            "width": 2,
+            "height": 2.4,
+            "note": null,
+            "createdAt": "2026-11-05T15:00:00Z",
+            "measuredAt": "2026-11-05T15:00:00Z",
+            "retiredAt": null,
+            "actualWidth": 2.1,
+            "actualHeight": 2.4,
+            "actualSystemText": "Synthetic system",
+            "imageCatalogItemId": null,
+            "technical": null,
+            "sketchVersionId": null,
+            "technicalComplete": false,
+            "measurementType": "Opening",
+            "actualLocation": null,
+            "installationObservations": null,
+            "comparison": {
+              "resolution": "Comparable",
+              "reason": "Synthetic reason",
+              "measurementType": "Opening",
+              "width": 2.1,
+              "height": 2.4
+            },
+            "comparisonStatus": "PendingReview",
+            "comparisonCurrent": false,
+            "widthDifferenceMm": null,
+            "heightDifferenceMm": null,
+            "modification": {
+              "versionId": "00000000-0000-4000-8000-000000000022",
+              "type": "Dimensional",
+              "reason": "Synthetic reason",
+              "description": "Synthetic description",
+              "sketchVersionId": "00000000-0000-4000-8000-000000000023",
+              "evidence": "{\u0022ActualWidth\u0022:2.1,\u0022ActualHeight\u0022:2.4,\u0022ActualSystemText\u0022:\u0022Synthetic system\u0022,\u0022MeasurementType\u0022:\u0022Opening\u0022,\u0022ActualLocation\u0022:\u0022Synthetic location\u0022,\u0022TechnicalJson\u0022:null}"
+            },
+            "modificationComplete": false
+          }
+        }
+      ],
+      "versions": [],
+      "history": []
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "taskId": null,
+      "acceptanceId": "00000000-0000-4000-8000-000000000013",
+      "openingRecordId": "00000000-0000-4000-8000-000000000032",
+      "actaNumber": 2,
+      "presentedDocumentId": "00000000-0000-4000-8000-000000000042",
+      "signedDocumentId": "00000000-0000-4000-8000-000000000052",
+      "acceptedAt": "2026-11-05T15:00:00Z",
+      "responsibleSubject": "",
+      "status": "Pending",
+      "number": null,
+      "revision": 0,
+      "canModify": false,
+      "blockedReason": "LEGACY_INCOMPLETE_EVIDENCE",
+      "structures": [
+        {
+          "structureId": "00000000-0000-4000-8000-000000000020",
+          "submissionId": "00000000-0000-4000-8000-000000000024",
+          "evidenceVersion": 1,
+          "source": {
+            "id": "00000000-0000-4000-8000-000000000020",
+            "itemId": "00000000-0000-4000-8000-000000000021",
+            "unitOrdinal": 1,
+            "unitCount": 1,
+            "itemNumber": "V1",
+            "description": "Synthetic structure",
+            "location": "Synthetic location",
+            "width": 2,
+            "height": 2.4,
+            "note": null,
+            "createdAt": "2026-11-05T15:00:00Z",
+            "measuredAt": "2026-11-05T15:00:00Z",
+            "retiredAt": null,
+            "actualWidth": 2.1,
+            "actualHeight": 2.4,
+            "actualSystemText": "Synthetic system",
+            "imageCatalogItemId": null,
+            "technical": null,
+            "sketchVersionId": null,
+            "technicalComplete": false,
+            "measurementType": "Opening",
+            "actualLocation": null,
+            "installationObservations": null,
+            "comparison": {
+              "resolution": "NotComparable",
+              "reason": "Historical comparison",
+              "measurementType": null,
+              "width": null,
+              "height": null
+            },
+            "comparisonStatus": "PendingReview",
+            "comparisonCurrent": false,
+            "widthDifferenceMm": null,
+            "heightDifferenceMm": null,
+            "modification": {
+              "versionId": "00000000-0000-4000-8000-000000000022",
+              "type": "Dimensional",
+              "reason": "Synthetic reason",
+              "description": "Synthetic description",
+              "sketchVersionId": "00000000-0000-4000-8000-000000000023",
+              "evidence": "{\u0022ActualWidth\u0022:2.1,\u0022ActualHeight\u0022:2.4,\u0022ActualSystemText\u0022:\u0022Synthetic system\u0022,\u0022MeasurementType\u0022:\u0022Opening\u0022,\u0022ActualLocation\u0022:\u0022Synthetic location\u0022,\u0022TechnicalJson\u0022:null}"
+            },
+            "modificationComplete": false
+          }
+        }
+      ],
+      "versions": [],
+      "history": []
+    }
+  ]
+}
