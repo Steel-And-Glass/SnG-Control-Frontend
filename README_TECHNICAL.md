@@ -1183,7 +1183,10 @@ No apuntar estas variables a servicios operativos. El cierre elimina procesos pr
 
 ## Radicacion de Vanos
 
-La tarea FileOpeningRecord abre `/projects/{id}/opening-filings?task={taskId}`. La vista sin
+La tarea FileOpeningRecord abre `/projects/{id}/opening-filings?task={taskId}`.
+La carga descarta respuestas anteriores y cancelaciones por desmontaje o cambio de contexto.
+Una respuesta correcta limpia errores previos; los fallos reales ofrecen reintento explicito.
+El cliente API conserva AbortError durante la lectura JSON y descarta resultados de sesiones canceladas. La vista sin
 `task` lista todas las aceptaciones/radicaciones del proyecto, independientes entre si.
 El responsable asignado de Ingenieria guarda numero manual y correspondencias OP, carga varios
 PDF por categoria en sesiones sucesivas, sustituye archivos por nuevas versiones y retira

@@ -1,5 +1,9 @@
+import {AuthContext} from "@/features/auth/context/AuthProvider";
+import {StrictMode,useState,useContext} from "react";
+import {TaskList} from "@/features/tasks/TaskList";
+import {task as baseTask} from "./operationalFixtures";
 import {beforeEach,expect,it,vi} from "vitest";
-import {screen,waitFor} from "@testing-library/react";
+import {act,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {OpeningFilingsPage} from "@/features/engineering/OpeningFilingsPage";
 import {parseFilings,type Filings,type FilingCommand} from "@/features/engineering/filingContracts";
@@ -62,4 +66,50 @@ it("keeps arbitrary-format replacements only on the additional card and renders 
  const forms:FormData[]=[];mockBackend((_,init)=>{if(init.body instanceof FormData){forms.push(init.body);return new Response(null,{status:204});}return data;});renderOperational(<OpeningFilingsPage projectId={id} taskId={task}/>,engineer);
  const replace=await screen.findByLabelText("Sustituir original.html");expect(replace).not.toHaveAttribute("accept");expect(screen.getByText(/text\/html/)).toBeInTheDocument();
  await userEvent.upload(replace,new File(["new"],"replacement.exe",{type:"application/x-msdownload"}));await waitFor(()=>expect(forms).toHaveLength(1));expect(JSON.parse(await (forms[0].get("manifest") as Blob).text())).toMatchObject({category:"Additional",replacesDocumentId:id});
+});
+
+
+it("navigates from the task link under StrictMode and ignores the cancelled mount request",async()=>{
+ const old=deferred<Response>();const signals:AbortSignal[]=[];
+ mockBackend((_,init)=>{signals.push(init.signal as AbortSignal);return signals.length===1?old.promise:state();});
+ function Navigation(){const [open,setOpen]=useState(false);return open?<OpeningFilingsPage projectId={id} taskId={task}/>:<div onClick={e=>{if((e.target as HTMLElement).closest("a")){e.preventDefault();setOpen(true);}}}><TaskList tasks={[{...baseTask,id:task,projectId:id,type:"FileOpeningRecord",area:"Engineering"}]} projectNames={new Map([[id,"Synthetic project"]])}/></div>;}
+ renderOperational(<StrictMode><Navigation/></StrictMode>,engineer);
+ const link=await screen.findByRole("link",{name:/Abrir radicaci/});expect(link).toHaveAttribute("href",`/projects/${id}/opening-filings?task=${task}`);await userEvent.click(link);
+ await screen.findByRole("button",{name:"Guardar borrador"});expect(signals[0].aborted).toBe(true);
+ await act(async()=>old.reject(new DOMException("cancelled","AbortError")));
+ expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(screen.getByText("Synthetic project")).toBeInTheDocument();
+});
+it.each([0,403,503])("recovers from a real %s load failure with an explicit retry and a valid 200",async status=>{
+ let calls=0;mockBackend(()=>{if(++calls===1){if(status===0)throw new TypeError("network");return Response.json({}, {status});}return state();});
+ renderOperational(<OpeningFilingsPage projectId={id} taskId={task}/>,engineer);
+ expect(await screen.findByRole("alert")).toBeInTheDocument();expect(screen.queryByRole("button",{name:"Guardar borrador"})).not.toBeInTheDocument();
+ await userEvent.click(screen.getByRole("button",{name:"Volver a cargar"}));await screen.findByRole("button",{name:"Guardar borrador"});expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(calls).toBe(2);
+});
+it("does not display a standalone AbortError as a connection failure and permits recovery",async()=>{
+ let calls=0;mockBackend(()=>{if(++calls===1)throw new DOMException("cancelled","AbortError");return state();});
+ renderOperational(<OpeningFilingsPage projectId={id}/>,engineer);
+ await userEvent.click(await screen.findByRole("button",{name:"Volver a cargar"}));await screen.findByText("Synthetic project");expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+it.each(["response","failure"])("ignores a late %s from the previous project",async outcome=>{
+ const old=deferred<Response>();let signal:AbortSignal|undefined;
+ mockBackend((path,init)=>{if(path.includes(id)){signal=init.signal as AbortSignal;return old.promise;}return {...state(),projectName:"New project"};});
+ function Navigation(){const [project,setProject]=useState(id);return <><button onClick={()=>setProject(task)}>Other project</button><OpeningFilingsPage projectId={project}/></>;}
+ renderOperational(<Navigation/>,engineer);await userEvent.click(screen.getByRole("button",{name:"Other project"}));await screen.findByText("New project");expect(signal?.aborted).toBe(true);
+ await act(async()=>{if(outcome==="response")old.resolve(Response.json(state()));else old.reject(new TypeError("late failure"));});
+ expect(screen.getByText("New project")).toBeInTheDocument();expect(screen.queryByText("Synthetic project")).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+it("aborts the active filing request on unmount",async()=>{
+ const pending=deferred<Response>();let signal:AbortSignal|undefined;mockBackend((_,init)=>{signal=init.signal as AbortSignal;return pending.promise;});
+ const view=renderOperational(<OpeningFilingsPage projectId={id}/>,engineer);view.unmount();expect(signal?.aborted).toBe(true);await act(async()=>pending.resolve(Response.json(state())));
+});
+
+it("clears a previous load error when a renewed API client receives 200",async()=>{
+ let calls=0;mockBackend(()=>{if(++calls===1)throw new TypeError("network");return state();});
+ function Session(){const context=useContext(AuthContext)!;const [api,setApi]=useState(context.apiClient);return <AuthContext.Provider value={{...context,apiClient:api}}><button onClick={()=>setApi({...api})}>Renew client</button><OpeningFilingsPage projectId={id}/></AuthContext.Provider>;}
+ renderOperational(<Session/>,engineer);await screen.findByRole("alert");await userEvent.click(screen.getByRole("button",{name:"Renew client"}));await screen.findByText("Synthetic project");expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+it.each(["role","identity"])("discards an in-flight result after a %s change",async change=>{
+ const old=deferred<Response>();let calls=0;let signal:AbortSignal|undefined;mockBackend((_,init)=>{if(++calls===1){signal=init.signal as AbortSignal;return old.promise;}return {...state(),projectName:"Current session"};});
+ function Session(){const context=useContext(AuthContext)!;const [changed,setChanged]=useState(false);return <AuthContext.Provider value={{...context,activeRole:changed&&change==="role"?"Management":context.activeRole,user:changed&&change==="identity"?{...engineer,subject:"another-synthetic-subject"}:engineer}}><button onClick={()=>setChanged(true)}>Switch session</button><OpeningFilingsPage projectId={id} taskId={task}/></AuthContext.Provider>;}
+ renderOperational(<Session/>,engineer);await userEvent.click(screen.getByRole("button",{name:"Switch session"}));await screen.findByText("Current session");expect(signal?.aborted).toBe(true);await act(async()=>old.resolve(Response.json(state())));expect(screen.queryByText("Synthetic project")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"Guardar borrador"})).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });

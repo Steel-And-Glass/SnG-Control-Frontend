@@ -18,11 +18,26 @@ export function OpeningFilingsPage({projectId,taskId}:{projectId:string;taskId?:
  return <FilingsContent key={`${projectId}:${taskId}:${user?.subject}:${activeRole}`} projectId={projectId} taskId={taskId}/>;
 }
 function FilingsContent({projectId,taskId}:{projectId:string;taskId?:string}) {
- const api=useApiClient();const [data,setData]=useState<Filings>();const [error,setError]=useState<unknown>();const controller=useRef<AbortController|null>(null);
- const load=useCallback(async(signal:AbortSignal)=>{const result=await filingService.read(api,projectId,signal);if(!signal.aborted)setData(result);return result;},[api,projectId]);
- useEffect(()=>{const c=new AbortController();controller.current=c;void filingService.read(api,projectId,c.signal).then(result=>{if(!c.signal.aborted)setData(result);}).catch(e=>{if(!c.signal.aborted)setError(e);});return()=>c.abort();},[api,projectId]);
+ const api=useApiClient();const [data,setData]=useState<Filings>();const [error,setError]=useState<unknown>();const [loading,setLoading]=useState(true);const controller=useRef<AbortController|null>(null);
+ const load=useCallback(async(parentSignal?:AbortSignal)=>{
+  controller.current?.abort();
+  const c=new AbortController();controller.current=c;
+  const signal=parentSignal?AbortSignal.any([c.signal,parentSignal]):c.signal;
+  try {
+   const result=await filingService.read(api,projectId,signal);
+   signal.throwIfAborted();
+   if(controller.current===c){setData(result);setError(undefined);}
+   return result;
+  } catch(e) {
+   if(controller.current===c&&!signal.aborted&&!(e instanceof Error&&e.name==="AbortError"))setError(e);
+   throw e;
+  } finally {if(controller.current===c&&!c.signal.aborted)setLoading(false);}
+ },[api,projectId]);
+ useEffect(()=>{void load().catch(()=>{});return()=>controller.current?.abort();},[load]);
+ const retry=()=>{setLoading(true);setError(undefined);void load().catch(()=>{});};
  const filing=data?.filings.find(f=>f.taskId===taskId);
- return <main className="stack"><Link className="text-link" href={`/projects/${projectId}`}>Volver al proyecto</Link><h1>Radicación de Vanos</h1>{error!==undefined&&<ErrorNotice error={error}/>}{!data&&!error&&<p role="status">Cargando radicaciones…</p>}
+ return <main className="stack"><Link className="text-link" href={`/projects/${projectId}`}>Volver al proyecto</Link><h1>Radicación de Vanos</h1>{error!==undefined&&<ErrorNotice error={error} retry={retry}/>}{!data&&loading&&<p role="status">Cargando radicaciones…</p>}
+ {!data&&!loading&&error===undefined&&<button className="button-secondary" onClick={retry}>Volver a cargar</button>}
  {data&&<><h2>{data.projectName}</h2><p>SG: {data.sgCode??"Sin asignar"}</p>{!taskId?<><p>Cada aceptación conserva su expediente independiente.</p>{!data.filings.length&&<p>No hay radicaciones recibidas.</p>}{data.filings.map(f=><article className="panel stack" key={f.id}><h3>Acta {f.actaNumber} · {f.number??"Número pendiente"}</h3><p>{states[f.status]} · {f.structures.length} estructuras · {f.responsibleSubject}</p><p>Aceptada: {formatDate(f.acceptedAt)}</p>{f.taskId&&<Link className="text-link" href={`/projects/${projectId}/opening-filings?task=${encodeURIComponent(f.taskId)}`}>Abrir radicación</Link>}{f.blockedReason&&<p>Evidencia histórica incompleta: consulta disponible, ejecución bloqueada.</p>}</article>)}</>:filing?<FilingEditor projectId={projectId} filing={filing} reload={load}/>:<p role="alert">La tarea no corresponde a una radicación disponible en este proyecto.</p>}</>}
  </main>;
 }

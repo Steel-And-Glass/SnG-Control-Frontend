@@ -157,3 +157,21 @@ describe("safe download filename", () => {
     expect(downloadFilename('attachment; filename="confirmed.xlsx"')).toBe("confirmed.xlsx");
   });
 });
+
+
+describe("JSON body cancellation",()=>{
+ it.each(["caller","session"])("preserves %s cancellation after response headers",async source=>{
+  const controller=new AbortController();const response=Response.json({});
+  vi.spyOn(response,"json").mockImplementation(async()=>{controller.abort();throw new DOMException("cancelled","AbortError");});fetchMock.mockResolvedValue(response);
+  const client=createApiClient({getSession:()=>({...snapshot,signal:source==="session"?controller.signal:undefined}),invalidateSession});
+  await expect(client.get("projects",source==="caller"?{signal:controller.signal}:undefined)).rejects.toMatchObject({name:"AbortError"});expect(invalidateSession).not.toHaveBeenCalled();
+ });
+ it("discards JSON that finishes after its session was cancelled",async()=>{
+  const controller=new AbortController();const response=Response.json({});vi.spyOn(response,"json").mockImplementation(async()=>{controller.abort();return {stale:true};});fetchMock.mockResolvedValue(response);
+  const client=createApiClient({getSession:()=>({...snapshot,signal:controller.signal}),invalidateSession});
+  await expect(client.get("projects")).rejects.toMatchObject({name:"AbortError"});
+ });
+ it("preserves fetch AbortError even when the caller signal was not aborted",async()=>{
+  fetchMock.mockRejectedValue(new DOMException("cancelled","AbortError"));await expect(makeClient().get("projects")).rejects.toMatchObject({name:"AbortError"});
+ });
+});

@@ -64,7 +64,8 @@ export function createApiClient(session: SessionAccess): ApiClient {
         method, headers, body: requestBody, signal,
         cache: "no-store", credentials: "omit", redirect: "error",
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw error;
       if (signal?.aborted) throw new DOMException("Solicitud cancelada.", "AbortError");
       throw new ApiError(0);
     }
@@ -80,9 +81,21 @@ export function createApiClient(session: SessionAccess): ApiClient {
   }
 
   async function json<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: JsonValue | FormData, options?: ApiRequestOptions): Promise<T> {
+    // Operational reads must also respect cancellation while consuming the body.
+    // Intelligence creation responses still reach their lifecycle cleanup.
+    const sessionSignal = path.startsWith("intelligence/") ? undefined : session.getSession().signal;
+    const signal = sessionSignal ? AbortSignal.any([sessionSignal, ...(options?.signal ? [options.signal] : [])]) : options?.signal;
     const response = await request(method, path, body, options);
     if (response.status === 204 || response.status === 205) return undefined as T;
-    try { return await response.json() as T; } catch { throw new ApiError(502); }
+    try {
+      const result = await response.json() as T;
+      if (!path.startsWith("intelligence/")) signal?.throwIfAborted();
+      return result;
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw error;
+      signal?.throwIfAborted();
+      throw new ApiError(502);
+    }
   }
 
   return {
