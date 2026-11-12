@@ -137,6 +137,14 @@ export async function forwardBackend(request: Request, segments: string[]): Prom
     const contentType = response.headers.get("Content-Type") ?? "";
     const mediaType = contentType.split(";")[0].trim().toLowerCase();
     const documentFile = request.method === "GET" && isDocumentFilePath(segments);
+    if ((segments[2] === "opening-filings" && segments[8] === "download" && mediaType === "application/octet-stream")) {
+      const filename = downloadFilename(response.headers.get("Content-Disposition"));
+      if (!filename || forbidden.some(text => filename.toLowerCase().includes(text.toLowerCase()))) return problem(502);
+      responseHeaders.set("Content-Type", "application/octet-stream");
+      responseHeaders.set("X-Content-Type-Options", "nosniff");
+      responseHeaders.set("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename).replace(/['()*]/g, c => `%${c.charCodeAt(0).toString(16)}`)}`);
+      return new Response(response.body, { status: response.status, headers: responseHeaders });
+    }
     if ((segments[2] === "opening-filings" && segments[8] === "download") || (segments[2] === "incremental-opening-records" && segments[4] === "documents" && segments[6] === "download") || (segments[2] === "opening-records" && segments[3] === "documents" && segments[5] === "download") || isMeasurementReportPath(segments) || (segments[2] === "engineering" && ((segments[3] === "acta" && segments[5] === "download") || (segments[3] === "opening-records" && segments[7] === "download")))) {
       if (mediaType !== "application/pdf") return problem(502);
       responseHeaders.set("Content-Type", "application/pdf"); responseHeaders.set("X-Content-Type-Options", "nosniff");

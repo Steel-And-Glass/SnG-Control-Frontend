@@ -1188,8 +1188,13 @@ La tarea FileOpeningRecord abre `/projects/{id}/opening-filings?task={taskId}`. 
 El responsable asignado de Ingenieria guarda numero manual y correspondencias OP, carga varios
 PDF por categoria en sesiones sucesivas, sustituye archivos por nuevas versiones y retira
 archivos del borrador conservando historial. Siete categorias son obligatorias; Adicionales es
-opcional. Todas aceptan multiples PDF. Otros formatos no estan habilitados sin un validador
-adecuado. Los controles tecnicos de tamano y cuota pertenecen al backend.
+opcional y acepta multiples archivos de cualquier formato, sin filtro de extensiones, tambien
+al sustituir una version. Las otras siete categorias siguen aceptando exclusivamente PDF.
+Los adicionales conservan nombre y extension originales, MIME declarado cuando existe, tamano,
+hash, responsable y fecha. No se interpretan ni ejecutan: la descarga autenticada fuerza
+application/octet-stream, attachment y nosniff, incluso para HTML, scripts o archivos JSON.
+Los controles tecnicos configurables de tamano y cuota pertenecen al backend; archivos vacios,
+nombres inseguros y metadata MIME invalida se rechazan. No se incorporan viewers ni extractores.
 
 Confirmar requiere confirmacion explicita y respuesta oficial; congela el manifiesto y completa
 solo esa tarea. Una enmienda exige motivo y conserva versiones anteriores, numero e identidad.

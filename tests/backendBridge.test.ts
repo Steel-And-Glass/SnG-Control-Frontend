@@ -363,3 +363,15 @@ describe("closed opening filing bridge",()=>{
   expect((await forwardBackend(request(),[...root,id,"admin"])).status).toBe(400);expect(fetchMock).not.toHaveBeenCalled();
  });
 });
+
+describe("opaque additional filing downloads",()=>{
+ const id="11111111-1111-4111-8111-111111111111";const path=["projects",id,"opening-filings",id,"versions",id,"documents",id,"download"];
+ it.each(["source.html","payload.js","drawing.dwg","archive.zip","without-extension"])("forces %s to attachment without transforming bytes",async name=>{
+  const bytes=new TextEncoder().encode('<script>not executed</script>{"token":"opaque original file data"}');
+  fetchMock.mockResolvedValue(new Response(bytes,{headers:{"Content-Type":"application/octet-stream","Content-Disposition":`inline; filename="${name}"`}}));
+  const result=await forwardBackend(request(),path);expect(result.status).toBe(200);expect(new Uint8Array(await result.arrayBuffer())).toEqual(bytes);expect(result.headers.get("Content-Type")).toBe("application/octet-stream");expect(result.headers.get("X-Content-Type-Options")).toBe("nosniff");expect(result.headers.get("Content-Disposition")).toMatch(/^attachment;/);expect(result.headers.get("Cache-Control")).toBe("no-store");
+ });
+ it.each(["text/html","application/javascript","application/json"])("rejects a backend that returns active MIME %s for a filing download",async type=>{
+  fetchMock.mockResolvedValue(new Response("content",{headers:{"Content-Type":type,"Content-Disposition":"attachment; filename=source.html"}}));expect((await forwardBackend(request(),path)).status).toBe(502);
+ });
+});

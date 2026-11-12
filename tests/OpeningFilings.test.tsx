@@ -16,7 +16,8 @@ it("opens the assigned task with eight multi-file categories and saves exact OP 
  renderOperational(<OpeningFilingsPage projectId={id} taskId={task}/>,engineer);
  await userEvent.type(await screen.findByLabelText(/N.mero de radicado/),"1162001");
  const ops=screen.getAllByLabelText(/C.digo OP/);await userEvent.type(ops[0],"OP1");await userEvent.click(screen.getAllByRole("checkbox")[0]);
- expect(screen.getAllByLabelText(/A.adir PDF/)).toHaveLength(8);for(const input of screen.getAllByLabelText(/A.adir PDF/))expect(input).toHaveAttribute("multiple");
+ expect(screen.getAllByLabelText(/A.adir PDF/)).toHaveLength(7);for(const input of screen.getAllByLabelText(/A.adir PDF/)){expect(input).toHaveAttribute("multiple");expect(input).toHaveAttribute("accept",".pdf,application/pdf");}
+ const additional=screen.getByLabelText(/A.adir archivos/);expect(additional).toHaveAttribute("multiple");expect(additional).not.toHaveAttribute("accept");
  await userEvent.click(screen.getByRole("button",{name:"Guardar borrador"}));expect(screen.getByRole("button",{name:"Guardar borrador"})).toBeDisabled();
  const write=fetch.mock.calls.find(c=>c[1].method==="POST")!;const body=JSON.parse(write[1].body as string) as FilingCommand;
  expect(body).toMatchObject({action:"Save",number:"1162001",members:[{structureId:data.filings[0].structures[0].structureId,code:"OP1",confirmed:true}]});
@@ -47,4 +48,18 @@ it("rejects open contracts, foreign structures and duplicate filing identities",
 });
 it("closes methods and routes for filing operations",()=>{
  const root=["projects",id,"opening-filings"];expect(openingFilingMethod(root)).toBe("GET");expect(openingFilingMethod([...root,id,"commands"])).toBe("POST");expect(openingFilingMethod([...root,id,"versions",id,"documents",id,"download"])).toBe("GET");for(const path of [[...root,"admin"],[...root,id,"delete"],[...root,id,"versions",id,"commands"]])expect(isBackendPath(path)).toBe(false);
+});
+
+it("uploads mixed additional formats progressively without filtering or interpreting bytes",async()=>{
+ const data=state();const forms:FormData[]=[];mockBackend((_,init)=>{if(init.body instanceof FormData){forms.push(init.body);data.filings[0].revision++;return new Response(null,{status:204});}return data;});
+ renderOperational(<OpeningFilingsPage projectId={id} taskId={task}/>,engineer);
+ const files=[new File(["<script>throw 1</script>"],"source.html",{type:"text/html"}),new File([new Uint8Array([0,255,7])],"drawing.dwg",{type:"application/x-custom"}),new File(["opaque"],"no-extension")];
+ await userEvent.upload(await screen.findByLabelText(/A.adir archivos/),files);await waitFor(()=>expect(forms).toHaveLength(3));
+ for(let i=0;i<files.length;i++){const sent=forms[i].get("file") as File;expect(sent.name).toBe(files[i].name);expect(sent.type).toBe(files[i].type);expect(await sent.arrayBuffer()).toEqual(await files[i].arrayBuffer());expect(JSON.parse(await (forms[i].get("manifest") as Blob).text())).toMatchObject({category:"Additional",expectedRevision:i});}
+});
+it("keeps arbitrary-format replacements only on the additional card and renders declared MIME as metadata",async()=>{
+ const data=state();data.filings[0].status="Preparing";data.filings[0].versions=[{id,number:1,reason:null,createdAt:date,createdBySubject:user.subject,confirmedAt:null,confirmedBySubject:null,manifestSha256:null,members:[],documents:[{documentId:id,category:"Additional",version:1,state:"Current",name:"original.html",sizeBytes:3,sha256:"A".repeat(64),uploadedAt:date,uploadedBySubject:user.subject,contentType:"text/html"}]}];
+ const forms:FormData[]=[];mockBackend((_,init)=>{if(init.body instanceof FormData){forms.push(init.body);return new Response(null,{status:204});}return data;});renderOperational(<OpeningFilingsPage projectId={id} taskId={task}/>,engineer);
+ const replace=await screen.findByLabelText("Sustituir original.html");expect(replace).not.toHaveAttribute("accept");expect(screen.getByText(/text\/html/)).toBeInTheDocument();
+ await userEvent.upload(replace,new File(["new"],"replacement.exe",{type:"application/x-msdownload"}));await waitFor(()=>expect(forms).toHaveLength(1));expect(JSON.parse(await (forms[0].get("manifest") as Blob).text())).toMatchObject({category:"Additional",replacesDocumentId:id});
 });
