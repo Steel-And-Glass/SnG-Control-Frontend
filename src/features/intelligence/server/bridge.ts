@@ -12,7 +12,7 @@ function baseUrl(): URL {
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== "/") throw new Error("Invalid configuration");
   return url;
 }
-const responseHeaders = () => new Headers({ "Cache-Control": "no-store", Vary: "Authorization", "X-Content-Type-Options": "nosniff" });
+const responseHeaders = () => new Headers({ "Cache-Control": "no-store", Vary: "Authorization, X-SnG-Active-Role", "X-Content-Type-Options": "nosniff" });
 function error(status: number, requestId?: string, allow?: string, code?: "conversation_unavailable") {
   const headers = responseHeaders();
   if (allow) headers.set("Allow", allow);
@@ -96,7 +96,7 @@ export async function forwardIntelligence(request: Request, segments: string[]):
   let base: URL;
   try { base = baseUrl(); } catch { return reject(503, "ConfigurationError"); }
   if (request.headers.get(ACTIVE_ROLE_HEADER) !== "Management") return reject(403, "RequestRejected");
-  const headers = new Headers({ Authorization: authorization, Accept: path === "voice/speech" ? "audio/mpeg" : "application/json" });
+  const headers = new Headers({ Authorization: authorization, [ACTIVE_ROLE_HEADER]: "Management", Accept: path === "voice/speech" ? "audio/mpeg" : "application/json" });
   if (method === "POST") {
     const type = request.headers.get("Content-Type") ?? "";
     const upload = path === "voice" || path === "voice/transcribe";

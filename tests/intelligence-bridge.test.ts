@@ -17,6 +17,13 @@ beforeEach(() => {
   fetchMock.mockResolvedValue(Response.json(intelligenceResponse));
 });
 describe("Intelligence BFF", () => {
+  it.each([undefined, "Engineering", "OperationsHead", "Management,Engineering"])("rejects active role %s before forwarding", async (role) => {
+    const input = request();
+    if (role === undefined) input.headers.delete("X-SnG-Active-Role");
+    else input.headers.set("X-SnG-Active-Role", role);
+    expect((await GET(input, context("session"))).status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it("keeps Management and Intelligence on separate configured origins", async () => {
     vi.stubEnv("SNG_API_BASE_URL", "https://control.example.test");
     vi.stubEnv("SNG_INTELLIGENCE_BASE_URL", "https://intelligence.example.test");
@@ -30,7 +37,7 @@ describe("Intelligence BFF", () => {
       "https://intelligence.example.test/api/intelligence/chat",
     ]);
   });
-  it("forwards session to the fixed origin with Bearer only and safe cache headers", async () => {
+  it("forwards session to the fixed origin with Bearer, validated active role and safe cache headers", async () => {
     fetchMock.mockResolvedValue(Response.json({ authenticated: true, isManagement: true, token: "remove" }));
     const response = await GET(request(), context("session"));
     expect(response.status).toBe(200);
@@ -40,6 +47,9 @@ describe("Intelligence BFF", () => {
     expect(init).toMatchObject({ method: "GET", cache: "no-store", redirect: "error" });
     expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${token}`);
     expect(new Headers(init?.headers).has("Cookie")).toBe(false);
+    expect(new Headers(init?.headers).get("X-SnG-Active-Role")).toBe("Management");
+    expect(new Headers(init?.headers).has("X-Internal")).toBe(false);
+    expect(response.headers.get("Vary")).toBe("Authorization, X-SnG-Active-Role");
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
   it.each(["health", "../chat", "chat/extra", "https:/evil.test", "%2e%2e", "voice//speech"])("rejects path %s", async (path) => {
