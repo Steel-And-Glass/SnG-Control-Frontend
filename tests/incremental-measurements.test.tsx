@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import { IncrementalSubmissions, DeliveryHistory } from "@/features/measurements/IncrementalSubmissions";
+import { IncrementalSubmissions, DeliveryHistory, structureLabel } from "@/features/measurements/IncrementalSubmissions";
 import { MeasurementPanel } from "@/features/measurements/MeasurementPanel";
 import { EngineeringPanel } from "@/features/engineering/EngineeringPanel";
 import { parseEngineering, type EngineeringState } from "@/features/engineering/contracts";
@@ -29,7 +29,7 @@ it("confirms exactly three physical IDs and explicit document coverage while sev
   const structures = within(screen.getByRole("group", { name: "Estructuras medidas disponibles" }));
   expect(structures.getAllByRole("checkbox")).toHaveLength(3);
   for (const check of structures.getAllByRole("checkbox")) await userEvent.click(check);
-  await userEvent.click(screen.getByRole("checkbox", { name: `Respalda ${data.structures[0].id}` }));
+  await userEvent.click(screen.getByRole("checkbox", { name: `Respalda ${structureLabel(data.structures, data.structures[0].id)}` }));
   await userEvent.click(screen.getByRole("button", { name: "Radicar selección" }));
   expect(fetch).not.toHaveBeenCalled();
   expect(screen.getByRole("dialog")).toHaveTextContent("3 estructuras");

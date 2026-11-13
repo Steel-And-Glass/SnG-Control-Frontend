@@ -61,7 +61,7 @@ describe("Identity and active areas", () => {
     expect(signal?.aborted).toBe(true);
     expect(cleanup).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Local 0" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Clientes" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Clientes" })).not.toBeInTheDocument();
     expect(screen.getByText("Área: Budgets")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Solicitar futura" }));
     expect(screen.getByText("Área: Budgets")).toBeInTheDocument();

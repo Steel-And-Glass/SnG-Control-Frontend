@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api/apiError";
-import type { LeadTimeStatus, TaskArea, TaskStatus } from "@/features/tasks/types";
+import type { LeadTimeStatus, TaskArea, TaskStatus, TaskType } from "@/features/tasks/types";
 import type { ManagementOverview, ManagementTask } from "./types";
 
 function invalid(): never { throw new ApiError(502); }
@@ -21,7 +21,7 @@ function date(value: unknown): string {
   const result = string(value);
   return /^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(result) && Number.isFinite(Date.parse(result)) ? result : invalid();
 }
-function area(value: unknown): TaskArea { return choice(value, ["Commercial", "Budgets", "Accounting", "Installation"]); }
+function area(value: unknown): TaskArea { return choice(value, ["Commercial", "Budgets", "Accounting", "Installation", "Engineering"]); }
 function status(value: unknown): TaskStatus { return choice(value, ["Pending", "InProgress", "Completed"]); }
 function timing(value: unknown): LeadTimeStatus {
   return choice(value, ["NotStarted", "OnTrack", "DueSoon", "DueToday", "Overdue", "CompletedOnTime", "CompletedLate", "UntrackedLegacy"]);
@@ -55,13 +55,20 @@ export function parseManagementOverview(value: unknown): ManagementOverview {
     }) },
   };
 }
+// ProjectTask's current non-quotation workflows persist a null round, including
+// Commercial tasks for receipts/Actas. The area does not determine the round.
+const tasksWithoutQuotationRound: readonly TaskType[] = [
+  "RegisterInitialDeposit", "TakeMeasurements", "CorrectDepositReceipts", "PrepareOpeningRecord",
+  "PresentOpeningRecord", "ReviewOpeningRecord", "FileOpeningRecord", "EngineeringPackage",
+];
 export function parseManagementTasks(value: unknown): ManagementTask[] {
   return list(value, (entry) => {
     const v = object(entry, ["taskId", "projectId", "projectName", "clientId", "clientName", "sgCode", "city", "productLine", "area", "type", "status", "assignedAt", "startedAt", "completedAt", "deadlineAt", "wasOverdue", "leadTimeStatus", "quotationRound"]);
     const quotationRound = v.quotationRound === null ? null : count(v.quotationRound);
-    if (v.type === "RegisterInitialDeposit" ? quotationRound !== null : quotationRound === null || quotationRound < 1) invalid();
+    const type = string(v.type);
+    if (tasksWithoutQuotationRound.some(task => task === type) ? quotationRound !== null : quotationRound === null || quotationRound < 1) invalid();
     return { quotationRound, ...context(v), clientId: string(v.clientId), city: string(v.city), productLine: string(v.productLine),
-      type: string(v.type), status: status(v.status), assignedAt: date(v.assignedAt),
+      type, status: status(v.status), assignedAt: date(v.assignedAt),
       completedAt: nullable(v.completedAt, date), wasOverdue: nullable(v.wasOverdue, boolean) };
   });
 }

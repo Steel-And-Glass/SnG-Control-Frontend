@@ -57,10 +57,11 @@ export function StructureCard({ deliveryNumber, structure: s, projectId, savedSk
   function change(field: keyof ActualDraft, value: string) { actual.setValue({ ...actual.value, [field]: value }); }
   const handleConflict = s.technical?.handleHeightMm != null && Number(height) > 0 && Number(height) < s.technical.handleHeightMm;
   const valid = Number.isFinite(Number(width)) && Number(width) > 0 && Number.isFinite(Number(height)) && Number(height) > 0 && !!system.trim() && system.length <= 2000;
-  return <article className={`panel stack ${styles.card}`} aria-label={`Estructura ${s.id}`}>
+  return <article className={`panel stack ${styles.card} ${!canEdit ? styles.cardLocked : ""}`} aria-label={`Estructura ${s.id}`}>
+    <div className={styles.cardStatus}><span className={`badge ${deliveryNumber ? "badge-info" : s.measuredAt ? "badge-success" : hasDrafts ? "badge-warning" : "badge-neutral"}`}>{deliveryNumber ? `Radicada · Tramo ${String(deliveryNumber).padStart(2, "0")}` : s.measuredAt ? "Medición completa" : hasDrafts ? "Cambios sin guardar" : "Pendiente de medir"}</span>{!canEdit && <span className="badge badge-neutral">Solo lectura</span>}</div>
     {deliveryNumber && <p>Radicada en Tramo {String(deliveryNumber).padStart(2, "0")} - Evidencia congelada</p>}
     <section className={`stack ${styles.cardSection}`}><h3>1. Referencia de cotización</h3>
-    <strong>{s.itemId ? `Ítem ${s.itemNumber ?? ""} · ${s.unitOrdinal}/${s.unitCount}` : "Agregada en obra"} · {s.id.slice(0, 8)}</strong>
+    <strong>{s.itemId ? `Ítem ${s.itemNumber ?? ""} · ${s.unitOrdinal}/${s.unitCount}` : "Agregada en obra"}</strong>
     {s.location && <p>{s.location}</p>}
     <p className="metadata">{s.itemId ? "Cotizado" : "Registro inicial"}: {s.description || "Sin sistema"} · {metresToMm(s.width)} × {metresToMm(s.height)} mm</p>
         <div className={styles.picture}>
@@ -106,7 +107,7 @@ export function StructureCard({ deliveryNumber, structure: s, projectId, savedSk
     {sectionAction === "Measure" && sectionFeedback}
     {!s.measuredAt && !hasDrafts && missing.length === 0 && s.technicalComplete !== false && <p>Ficha completa y guardada. Lista para confirmar.</p>}
     {s.measuredAt && <p className="metadata">{formatDate(s.measuredAt)}</p>}
-    {canEdit && <button className="button-secondary" disabled={disabled} onClick={onRetire}>Retirar estructura {s.id.slice(0, 8)}</button>}
+    {canEdit && <button className="button-secondary" disabled={disabled} onClick={onRetire}>Retirar estructura {s.itemNumber ?? "agregada en obra"} · Unidad {s.unitOrdinal}/{s.unitCount}</button>}
     </section>
   </article>;
 }

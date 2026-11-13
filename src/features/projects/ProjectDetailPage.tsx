@@ -20,6 +20,7 @@ import { TaskList } from "@/features/tasks/TaskList";
 import { ApiError } from "@/lib/api/apiError";
 import { ErrorNotice } from "@/lib/api/ErrorNotice";
 import { useResource } from "@/lib/api/useResource";
+import { SectionNav } from "./SectionNav";
 import { ProjectHeader } from "./ProjectHeader";
 import { ProjectStatusStrip } from "./ProjectStatusStrip";
 import styles from "./ProjectDetail.module.css";
@@ -50,7 +51,7 @@ function ProjectDetailContent({ id }: { id: string }) {
   }, [api, id]);
   const resource = useResource(load);
   const documentResource = useProjectDocuments(api, id);
-  const canEditDocuments = activeRole === "CommercialAdvisor" && user?.subject === resource.data?.project.createdBy?.subject;
+  const canEditDocuments = activeRole === "CommercialAdvisor" && resource.data?.project.isCreatedByMe === true;
   const documents = { ...documentResource, data: documentResource.data ? {
     ...documentResource.data,
     canModify: canEditDocuments && documentResource.data.canModify,
@@ -80,7 +81,7 @@ function ProjectDetailContent({ id }: { id: string }) {
     && (review.status === "InProgress" || review.status === "Completed");
   // Presentation only; the backend's BudgetsAssignee policy authorizes the PUT.
   const isPreparationAssignee = activeRole === "Budgets" && !!user && user.subject === preparation?.assignedToGoogleSubject;
-  const advisorOwner = activeRole === "CommercialAdvisor" && user?.subject === data?.project.createdBy?.subject;
+  const advisorOwner = activeRole === "CommercialAdvisor" && data?.project.isCreatedByMe === true;
   const canReadBudget = advisorOwner || isPreparationAssignee || canReview || activeRole === "Management";
   const canReadCommercial = advisorOwner || canReview || activeRole === "Management" || activeRole === "Accounting";
   const [contextOpen, setContextOpen] = useState(false);
@@ -170,15 +171,16 @@ function ProjectDetailContent({ id }: { id: string }) {
     </div>
     {data && <>
       <ProjectHeader project={data.project} clientName={data.client.name} />
+      <SectionNav />
       <ProjectStatusStrip tasks={engineeringView ? data.tasks.filter(t => ["PrepareOpeningRecord","ReviewOpeningRecord","FileOpeningRecord", "EngineeringPackage"].includes(t.type)) : installationView ? data.tasks.filter(t => t.type === "TakeMeasurements") : data.tasks} />
       {data.tasks.some(t=>t.type==="FileOpeningRecord")&&<Link className="text-link" href={`/projects/${id}/opening-filings`}>Consultar todas las radicaciones de Vanos</Link>}
-      {incrementalOpening===true && <div className={styles.documents}><CommercialOpeningPanel key={data.tasks.filter(t=>t.type==="PresentOpeningRecord").map(t=>t.id).join(":")} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
-      {incrementalOpening===false && data.tasks.some(t => t.type === "PresentOpeningRecord") && <div className={styles.documents}><OpeningRecordPanel key={`opening:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
-      {data.tasks.some(t => t.type === "PrepareOpeningRecord") && <div className={styles.documents}><EngineeringPanel key={`engineering:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated} onMode={setIncrementalOpening} /></div>}
-      {(activeRole === "Installation" || activeRole === "Management") && data.tasks.some(t => t.type === "TakeMeasurements") && <div className={styles.documents}><MeasurementPanel key={`${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated} /></div>}
-      {showAccounting && data.tasks.some(t => t.type === "PresentQuotationToClient" || t.type === "RegisterInitialDeposit") && <div className={styles.documents}><AccountingPanel key={`accounting:${id}:${activeRole}`} projectId={id} tasks={data.tasks} onRefresh={refreshQuotationRelated} /></div>}
-      {!installationView && !engineeringView && activeRole !== "Accounting" && preparation && <div className={styles.documents}><QuotationRoundsPanel key={`history:${quotationRevision}`} projectId={id} tasks={data.tasks} onRefresh={refreshQuotationRelated} /></div>}
-      {showNegotiation && data.tasks.some(t => t.type === "PresentQuotationToClient") && <div className={styles.documents}><ClientDecisionCard key={latestQuotationTask(data.tasks, "PresentQuotationToClient")?.quotationRound} projectId={id} tasks={data.tasks} onRefresh={refreshQuotationRelated} /></div>}
+      {incrementalOpening===true && <div id="sec-actas" data-section="Presentación de Actas" className={styles.documents}><CommercialOpeningPanel key={data.tasks.filter(t=>t.type==="PresentOpeningRecord").map(t=>t.id).join(":")} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
+      {incrementalOpening===false && data.tasks.some(t => t.type === "PresentOpeningRecord") && <div id="sec-actas-record" data-section="Presentación de Actas" className={styles.documents}><OpeningRecordPanel key={`opening:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated}/></div>}
+      {data.tasks.some(t => t.type === "PrepareOpeningRecord") && <div id="sec-ingenieria" data-section="Panel de Ingeniería" className={styles.documents}><EngineeringPanel key={`engineering:${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated} onMode={setIncrementalOpening} /></div>}
+      {(activeRole === "Installation" || activeRole === "Management") && data.tasks.some(t => t.type === "TakeMeasurements") && <div id="sec-medidas" data-section="Medidas en obra" className={styles.documents}><MeasurementPanel key={`${id}:${activeRole}`} projectId={id} onRefresh={refreshQuotationRelated} /></div>}
+      {showAccounting && data.tasks.some(t => t.type === "PresentQuotationToClient" || t.type === "RegisterInitialDeposit") && <div id="sec-pagos" data-section="Pagos y depósito" className={styles.documents}><AccountingPanel key={`accounting:${id}:${activeRole}`} projectId={id} tasks={data.tasks} onRefresh={refreshQuotationRelated} /></div>}
+      {!installationView && !engineeringView && activeRole !== "Accounting" && preparation && <div id="sec-rondas" data-section="Historial de cotización" className={styles.documents}><QuotationRoundsPanel key={`history:${quotationRevision}`} projectId={id} tasks={data.tasks} onRefresh={refreshQuotationRelated} /></div>}
+      {showNegotiation && data.tasks.some(t => t.type === "PresentQuotationToClient") && <div id="sec-decision" data-section="Decisión del cliente" className={styles.documents}><ClientDecisionCard key={latestQuotationTask(data.tasks, "PresentQuotationToClient")?.quotationRound} projectId={id} tasks={data.tasks} onRefresh={refreshQuotationRelated} /></div>}
       {activeRole !== "Management" && (!showAccounting || !showNegotiation || installationView || activeRole === "Accounting") && <details className={styles.documents} onToggle={e => setContextOpen(e.currentTarget.open)}>
         <summary>Contexto de otras áreas · Consulta complementaria</summary>
         {contextOpen && <>
@@ -189,7 +191,7 @@ function ProjectDetailContent({ id }: { id: string }) {
       </details>}
       {pendingSg && !isPreparationAssignee && <p role="status" className={styles.waiting}>Pendiente de asignación de SG por Presupuestos.</p>}
       <div className={styles.workspace}>
-      <div className={styles.documents}><DocumentsPanel projectId={id} resource={documents} hasPreparation={!!preparation} disabled={busy || quotationBusy || commercialBusy}
+      <div id="sec-documentos" data-section="Documentos del proyecto" className={styles.documents}><DocumentsPanel projectId={id} resource={documents} hasPreparation={!!preparation} disabled={busy || quotationBusy || commercialBusy}
         onBusyChange={setDocumentBusy} onUpdated={refreshDocumentNotifications} /></div>
       <div className={styles.actions}>
       {documents.data?.canModify && !documents.data.documents.some((document) => document.isCurrent) && <section className={styles.actionArea} aria-labelledby="upload-action-title"><p className={styles.actionLabel}>Acción actual</p><h2 id="upload-action-title" className={styles.actionTitle}>Cargar documentación</h2><p role="status" className={styles.actionText}>Debes cargar al menos un documento del proyecto antes de enviarlo a Presupuestos.</p><a className="text-link" href="#documents-title">Ir a documentos</a></section>}
@@ -212,20 +214,20 @@ function ProjectDetailContent({ id }: { id: string }) {
         {validation && <p id="sg-error" role="alert" className="error-message mt-3">{validation}</p>}
       </section>}
       </div>
-      {canReadBudget && <div className={styles.quotation}>
+      {canReadBudget && <div id="sec-cotizacion" data-section="Cotización técnica" className={styles.quotation}>
         {isPreparationAssignee && preparation?.status !== "Pending" ? <BudgetQuotationPanel key={`${data.project.sgCode}:${preparation?.quotationRound}`} projectId={id}
           canEdit={canCorrect} reviewStatus={review?.status} disabled={busy || documentBusy || commercialBusy} onBusyChange={setQuotationBusy}
           readView={<BudgetQuotationReadView key={quotationRevision} projectId={id} />} onRefreshRelated={refreshQuotationRelated}
           onTasksUpdated={(tasks) => { setQuotationRevision(value => value + 1); resource.update({ ...data, tasks: [...data.tasks.filter((current) => !tasks.some((task) => task.id === current.id)), ...tasks] }); }} />
           : <BudgetQuotationReadView key={quotationRevision} projectId={id} />}
       </div>}
-      {canReadCommercial && <div className={styles.commercial}>
+      {canReadCommercial && <div id="sec-comercial" data-section="Revisión comercial" className={styles.commercial}>
         <CommercialQuotationReadView key={`${quotationRevision}:${review?.status}`} projectId={id} allowDownload={advisorOwner} />
         {canReview && review && review.status !== "Pending" && <CommercialQuotationPanel key={review.quotationRound} projectId={id} reviewStatus={review.status}
           disabled={busy || documentBusy || quotationBusy} onBusyChange={setCommercialBusy} onRefreshRelated={refreshQuotationRelated}
           onTasksUpdated={(tasks) => { setQuotationRevision(value => value + 1); resource.update({ ...data, tasks: [...data.tasks.filter((current) => !tasks.some((task) => task.id === current.id)), ...tasks] }); }} />}
       </div>}
-      <details open={!installationView} className={styles.activity}><summary>Actividad y trazabilidad del proyecto</summary><section aria-labelledby="project-notifications-title" className={styles.activity}><h2 id="project-notifications-title" className={styles.sectionLabel}>Actividad del proyecto</h2><NotificationList notifications={data.notifications} variant="activity" /></section></details>
+      <details open={!installationView} id="sec-actividad" data-section="Actividad y tareas" className={styles.activity}><summary>Actividad y trazabilidad del proyecto</summary><section aria-labelledby="project-notifications-title" className={styles.activity}><h2 id="project-notifications-title" className={styles.sectionLabel}>Actividad del proyecto</h2><NotificationList notifications={data.notifications} variant="activity" /></section></details>
       <section aria-labelledby="project-tasks-title" className={styles.tasks}><h2 id="project-tasks-title" className={styles.sectionLabel}>Tareas del proyecto</h2><TaskList tasks={installationView ? data.tasks.filter(t => t.type === "TakeMeasurements") : data.tasks} compact />{installationView && <details><summary>Consultar tareas de otras áreas</summary><TaskList tasks={data.tasks.filter(t => t.type !== "TakeMeasurements")} compact /></details>}</section>
       </div>
       <p className={styles.footer}>Fechas y horas de Colombia (America/Bogota).</p>

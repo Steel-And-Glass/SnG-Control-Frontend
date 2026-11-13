@@ -1,0 +1,11 @@
+﻿// Synthetic DTO-shaped fixtures. Review state is a numeric JsonElement, not an enum string.
+export const oid=(n:number)=>`${n.toString().padStart(8,"0")}-1111-4111-8111-111111111111`;
+export const od="2026-11-13T12:00:00Z";
+export const oh="A".repeat(64);
+export const ov={material:"AluminumProfile",route:"ALUMINUM",reference:"PROFILE-A",description:"Perfil sintético",measure:1200,cutDimension:1200.1,width:null,height:null,unit:"mm",leftAngle:45,rightAngle:90,quantity:2};
+export const preparation={id:oid(1),projectId:oid(2),filingId:oid(3),releaseVersionId:oid(4),manifestSha256:oh,createdAt:od,state:"ReadyForReview",revision:1,extractorVersion:"p2.2.1",reviewedBySubject:null};
+export const release={versionId:oid(4),projectId:oid(2),filingId:oid(3),confirmedAt:od,manifestSha256:oh,preparationId:null as string|null};
+export const detail={preparation,members:[{structureId:oid(5),op:"OP-SYNTH-1"}],documents:[{documentId:oid(6),sha256:oh,category:"UnoptimizedCutList"}]};
+export const review={id:oid(7),preparationId:oid(1),extractionJobId:oid(8),sourceRevisionId:oid(9),number:1,revision:0,dataRevision:0,state:1,createdAt:od,createdBySubject:"synthetic-operations"};
+export const job={id:oid(8),preparationId:oid(1),extractorVersion:"p2.2.1",state:"Completed",attempts:1,revision:2,requestedAt:od,completedAt:od,errorCode:null,report:{issues:[],documents:[]},events:[],generation:1,componentRevisionId:oid(9)};
+export function wireView(){return {review:{...review},rows:[{id:oid(10),candidateId:oid(11),structureId:oid(5),op:"OP-SYNTH-1",documentId:oid(6),documentSha256:oh,original:{...ov,route:undefined,proposedRoute:"ALUMINUM",page:2,sourceRow:"7",sheet:null,originalPieceId:"PIECE-A",originalDimensions:"1200",declaredMaterial:"Aluminio",coordinatesJson:"[1,2,3,4]",specificationsJson:'{"measure":1200,"ct":1200.1}',quantity:2},values:{...ov},reviewed:true,excluded:false}],issues:[] as {id:string;code:string;category:string;evidence:unknown;resolved:boolean}[],approval:null as null|{id:string;revision:number;sha256:string;actor:string;at:string},origin:{projectId:oid(2),filingId:oid(3),releaseVersionId:oid(4),manifestSha256:oh,extractorVersion:"p2.2.1"},attachments:[] as {id:string;name:string;contentType:string|null;sizeBytes:number;sha256:string;at:string;actor:string}[],groups:[{op:"OP-SYNTH-1",structureId:oid(5),rowIds:[oid(10)]}]};}

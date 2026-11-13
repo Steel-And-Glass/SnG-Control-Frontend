@@ -1,4 +1,4 @@
-.projectSurface { min-width: 0; background: #fff; border: 1px solid #e2e8e9; }
+.projectSurface { min-width: 0; background: var(--surface); border: 1px solid var(--border); }
 .backLink { display: inline-block; margin: 22px 24px 0; color: var(--ink-soft); font-size: 12px; }
 .backLink::before { content: "←"; margin-right: 8px; }
 .backLink:hover { color: var(--brand); text-decoration: underline; text-underline-offset: 4px; }
@@ -7,15 +7,15 @@
 .projectHeader { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 20px; padding: 24px; }
 .projectTitle { font-size: clamp(26px, 2.4vw, 34px); line-height: 1.15; letter-spacing: -.035em; font-weight: 600; text-transform: uppercase; overflow-wrap: anywhere; }
 .projectContext { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 10px; color: var(--ink-soft); font-size: 14px; }
-.projectContext > span + span::before { content: "·"; margin-right: 10px; color: #7b8c91; }
-.sgCode { padding: 5px 0 7px 12px; border-left: 2px solid #a9b9bf; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 18px; font-weight: 600; color: #344d57; overflow-wrap: anywhere; max-width: 12ch; }
+.projectContext > span + span::before { content: "·"; margin-right: 10px; color: var(--ink-soft); }
+.sgCode { padding: 5px 0 7px 12px; border-left: 2px solid var(--border-strong); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 18px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; max-width: 12ch; }
 .projectFacts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px 36px; font-size: 12px; }
 .projectFacts dt { color: var(--ink-soft); margin-bottom: 3px; }
 .projectFacts dd { overflow-wrap: anywhere; }
-.statusStrip { border-block: 1px solid var(--border); background: #f9fafa; padding: 20px 24px; }
+.statusStrip { border-block: 1px solid var(--border); background: var(--surface-subtle); padding: 20px 24px; }
 .statusGrid { display: grid; gap: 20px; }
 .statusCell { min-width: 0; font-size: 13px; }
-.statusLabel, .sectionLabel { font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; color: #425b64; }
+.statusLabel, .sectionLabel { font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
 .statusLabel { margin-bottom: 7px; }
 .statusTitle { font-weight: 600; color: var(--ink); }
 .statusDates { display: grid; gap: 6px; }
@@ -24,7 +24,7 @@
 .quotation, .commercial { min-width: 0; }
 .documents, .actions, .activity, .tasks { min-width: 0; padding: 24px; }
 .documents { border-bottom: 1px solid var(--border); }
-.actions { display: grid; gap: 24px; align-content: start; background: #fcfdfd; border-bottom: 1px solid var(--border); }
+.actions { display: grid; gap: 24px; align-content: start; background: var(--surface-subtle); border-bottom: 1px solid var(--border); }
 .actions:empty { display: none; }
 .actionArea + .actionArea { padding-top: 20px; border-top: 1px solid var(--border); }
 .actionLabel { margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); }
@@ -66,3 +66,8 @@
   .backLink { margin-left: 16px; }
   .feedback, .footer { padding-inline: 16px; }
 }
+.sectionNav { position: sticky; top: 0; z-index: 5; display: flex; gap: .5rem; overflow-x: auto; padding: .6rem 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.sectionNav[hidden] { display: none; }
+.sectionNav a { flex: none; padding: .35rem .85rem; border: 1px solid var(--brand); border-radius: 999px; background: var(--brand-soft); color: var(--brand-hover); font-size: .85rem; font-weight: 600; white-space: nowrap; }
+.sectionNav a:hover { background: var(--brand); color: white; }
+:global([data-section]) { scroll-margin-top: 4.5rem; }

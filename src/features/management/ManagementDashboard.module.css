@@ -1,0 +1,34 @@
+/* Steel & Glass tokens from globals.css only. */
+.toolbar { display: grid; gap: 0.75rem; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.filters { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.field { display: grid; gap: 0.35rem; font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); }
+.toolbarActions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.kpis { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.kpi { display: grid; gap: 0.25rem; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--brand); border-radius: 12px; }
+.kpiLabel { font-size: 0.8rem; color: var(--ink-soft); }
+.kpiValue { font-size: 1.6rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.kpiNote { font-size: 0.78rem; color: var(--ink-soft); }
+.twoColumns { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.barButton { display: grid; grid-template-columns: 7.5rem 1fr 3rem; gap: 0.6rem; align-items: center; width: 100%; background: none; border: 0; padding: 0.25rem; border-radius: 8px; cursor: pointer; text-align: left; color: var(--ink); }
+.barButton:hover, .selected { background: var(--brand-soft); }
+.barRow { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr auto; gap: 0.6rem; align-items: center; }
+.barLabel { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barValue { font-size: 0.85rem; font-variant-numeric: tabular-nums; text-align: right; color: var(--ink-soft); }
+.track { display: flex; height: 10px; min-width: 4px; border-radius: 999px; overflow: hidden; background: var(--surface-subtle); }
+.segmentPending { display: inline-block; flex: 1 1 0; background: var(--border-strong); }
+.segmentProgress { display: inline-block; flex: 1 1 0; background: var(--accent); }
+.segmentDone { display: inline-block; flex: 1 1 0; background: var(--brand); }
+.legend { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; font-size: 0.8rem; color: var(--ink-soft); margin: 0; }
+.swatchPending, .swatchProgress, .swatchDone { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 3px; }
+.swatchPending { background: var(--border-strong); }
+.swatchProgress { background: var(--accent); }
+.swatchDone { background: var(--brand); }
+.attention { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.attentionItem { display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem; align-items: center; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-subtle); }
+.timing { font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 999px; background: var(--brand-soft); color: var(--brand); white-space: nowrap; }
+.timingDanger { background: var(--danger-soft); color: var(--danger); }
+.timingWarning { background: var(--warning-soft); color: var(--warning); }
+.danger { color: var(--danger); }
+.warning { color: var(--warning); }
+@media (max-width: 640px) { .attentionItem { grid-template-columns: 1fr; } .barButton { grid-template-columns: 6rem 1fr 3rem; } }

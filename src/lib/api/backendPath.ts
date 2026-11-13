@@ -1,6 +1,7 @@
 export const backendRoots = ["clients", "projects", "project-tasks", "notifications"] as const;
 
 export function isBackendPath(segments: string[]): boolean {
+  if (segments[0] === "operations") return operationsMethods(segments).length > 0;
   if (segments[0] === "projects" && segments[2] === "opening-filings") return openingFilingMethod(segments) !== null;
   if (segments[2] === "incremental-opening-records") return commercialOpeningMethod(segments) !== null;
   if (segments[2] === "opening-records") return openingRecordMethod(segments) !== null;
@@ -22,11 +23,31 @@ export function isBackendPath(segments: string[]): boolean {
     return isBudgetQuotationPath(segments) || isQuotationImagePath(segments);
   }
   if (segments[0] === "projects" && ["initial-deposit", "send-approved-quotation-to-accounting"].includes(segments[2])) return segments.length === 3 && /^[A-Za-z0-9_-]{1,200}$/.test(segments[1]);
-  if (segments[0] === "management") return segments.length === 2 && ["overview", "tasks"].includes(segments[1]);
+  if (segments[0] === "management") return (segments.length === 2 && ["overview", "tasks", "quotation-portfolio", "dashboard-dataset"].includes(segments[1])) || (segments.length === 3 && segments[1] === "analytics" && segments[2] === "surfaces");
   return segments.length > 0 && segments.length <= 20
     && backendRoots.some((root) => root === segments[0])
     && segments.every((segment) => segment.length <= 200
       && /^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/.test(segment));
+}
+
+// Closed P2.1–P2.3 surface. No arbitrary operations or document paths.
+export function operationsMethods(s: string[]): readonly string[] {
+  const id = (v: string) => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(v);
+  if (s[0] !== "operations") return [];
+  if (s.length === 2 && ["releases", "preparations"].includes(s[1])) return ["GET"];
+  if (s.length === 4 && s[1] === "releases" && id(s[2]) && s[3] === "preparation") return ["POST"];
+  if (s[1] !== "preparations" || !id(s[2])) return [];
+  if (s.length === 3) return ["GET"];
+  if (s.length === 4 && s[3] === "extraction") return ["GET", "POST"];
+  if (s.length === 4 && ["candidates", "reviews"].includes(s[3])) return ["GET"];
+  if (s[3] !== "reviews") return [];
+  if (s.length === 5 && (id(s[4]) || s[4] === "history")) return ["GET"];
+  if (s.length === 5 && ["commands", "evidence"].includes(s[4])) return ["POST"];
+  if (s.length === 6 && ["sources", "evidence"].includes(s[4]) && id(s[5])) return ["GET"];
+  return [];
+}
+export function isOperationsDownload(s: string[]): boolean {
+  return s[0] === "operations" && s.length === 6 && operationsMethods(s).includes("GET");
 }
 
 export function commercialOpeningMethod(s:string[]): "GET"|"POST"|null {

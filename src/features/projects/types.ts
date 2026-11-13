@@ -13,7 +13,7 @@ export interface Project extends CreateProject {
   sgCode: string | null;
   createdAt: string;
   updatedAt: string;
-  createdBy: { subject: string; email: string | null; name: string | null } | null;
+  createdByName: string | null; isCreatedByMe: boolean;
 }
 export interface AssignSgResponse {
   project: Project;

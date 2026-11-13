@@ -1,6 +1,5 @@
 import { roleContext } from "./roleFixtures";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AuthContext } from "@/features/auth/context/AuthProvider";
 import { AuthGate } from "@/features/auth/components/AuthGate";
@@ -36,26 +35,12 @@ describe("AuthGate", () => {
 });
 
 describe("UserIdentityCard", () => {
-  it("shows subject, email and name", () => {
+  it("shows name and email without the Google Subject", () => {
     render(<UserIdentityCard user={user} />);
-    expect(screen.getByText(user.subject)).toBeInTheDocument();
     expect(screen.getByText(user.email!)).toBeInTheDocument();
     expect(screen.getByText(user.name!)).toBeInTheDocument();
-  });
-  it("copies only subject with Clipboard API", async () => {
-    const interaction = userEvent.setup();
-    const write = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-    render(<UserIdentityCard user={user} />);
-    await interaction.click(screen.getByRole("button", { name: "Copiar Subject" }));
-    expect(write).toHaveBeenCalledExactlyOnceWith(user.subject);
-    expect(screen.getByRole("status")).toHaveTextContent("Subject copiado");
-  });
-  it("handles clipboard rejection accessibly", async () => {
-    const interaction = userEvent.setup();
-    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("blocked"));
-    render(<UserIdentityCard user={user} />);
-    await interaction.click(screen.getByRole("button", { name: "Copiar Subject" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("No se pudo copiar");
+    expect(screen.queryByText(user.subject)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Copiar/ })).not.toBeInTheDocument();
   });
   it("supports nullable name and email", () => {
     render(<UserIdentityCard user={{ ...user, name: null, email: null }} />);

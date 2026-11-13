@@ -46,7 +46,7 @@ describe("Project detail and send to Budgets", () => {
     ]));
     for (const text of [client.name, notification.title]) expect(screen.getByText(text)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Preparar cotización" })).toBeInTheDocument();
-    expect(screen.getByText(/Persona de prueba · persona@example.test/)).toBeInTheDocument();
+    expect(screen.getByText(/Persona de prueba/)).toBeInTheDocument();
     expect(screen.queryByText(/private-|test-subject/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Enviar a Presupuestos" })).not.toBeInTheDocument();
     expect(taskHistory().getByText("El plazo comienza al asignar el SG.")).toBeInTheDocument();

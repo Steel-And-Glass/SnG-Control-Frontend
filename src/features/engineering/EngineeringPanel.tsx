@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApiClient } from "@/features/auth/hooks/useApiClient";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { usePersonLabel } from "@/features/auth/hooks/usePersonLabel";
 import { useResource } from "@/lib/api/useResource";
 import { ApiError } from "@/lib/api/apiError";
 import { ErrorNotice } from "@/lib/api/ErrorNotice";
@@ -27,7 +28,7 @@ function SketchImage({ path }: { path: string }) {
  <img className={styles.picture} src={url} alt="Croquis radicado de Instalación" />
   : <p>{failed ? <button className="button-secondary" onClick={()=>setRetry(n=>n+1)}>Reintentar croquis</button> : "Cargando croquis…"}</p>;
 }
-export function EngineeringPanel({ projectId, onRefresh, onMode }: { projectId:string; onRefresh:(signal:AbortSignal)=>Promise<void>; onMode?:(incremental:boolean)=>void }) {
+export function EngineeringPanel({ projectId, onRefresh, onMode }: { projectId:string; onRefresh:(signal:AbortSignal)=>Promise<void>; onMode?:(incremental:boolean)=>void }) {const who=usePersonLabel();
  const api=useApiClient();const {activeRole,user}=useAuth();const path=`projects/${projectId}/engineering`;
  const load=useCallback(async(signal:AbortSignal)=>parseEngineering(await api.get<unknown>(path,{signal}),projectId),[api,path,projectId]);
  const resource=useResource(load);const data=resource.data;const drawings=useMeasurementImages(projectId,data?.structures.map(r=>r.structure)??[]);
@@ -68,7 +69,7 @@ export function EngineeringPanel({ projectId, onRefresh, onMode }: { projectId:s
  const label=(r:EngineeringRow)=>`${r.structure.itemId ? "Ítem "+r.structure.itemNumber : "Agregada en obra"} · Unidad ${r.structure.unitOrdinal}/${r.structure.unitCount}`;
  const errors:Record<string,string>={OpeningAdvisorNotConfigured:"El responsable comercial del proyecto debe tener membresía de Asesor configurada antes de cerrar Ingeniería.",EngineeringRevisionConflict:"El expediente cambió. Revisa el estado actualizado antes de reintentar.",EngineeringLocked:"Ingeniería ya está cerrada; el expediente es de solo lectura.",EngineeringIncomplete:"Completa todas las estructuras antes de finalizar.",EngineeringActaRequired:"Carga y verifica un Acta vigente antes de finalizar.",InvalidEngineeringPdf:"Selecciona un PDF válido, completo y de hasta 25 MiB.",EngineeringActaTooLarge:"El PDF supera 25 MiB.",EngineeringActaIntegrity:"El documento no superó la verificación de integridad.",EngineeringActaUnavailable:"El Acta no está disponible en almacenamiento.",EngineeringRequestConflict:"El reintento no coincide con la operación original."};
  return <section className="panel stack" aria-label="Ingeniería — Acta de Vanos">
- <h2>{data.isIncremental ? "Ingeniería · Recepción por tramos" : "Ingeniería · Elaborar Acta de Vanos"}</h2><p>{data.taskStatus==="Completed"?"Completada · Solo lectura":"En curso · Sin plazo formal"} · Responsable: {data.responsibleSubject}</p>
+ <h2>{data.isIncremental ? "Ingeniería · Recepción por tramos" : "Ingeniería · Elaborar Acta de Vanos"}</h2><p>{data.taskStatus==="Completed"?"Completada · Solo lectura":"En curso · Sin plazo formal"}{who("Responsable",data.responsibleSubject)}</p>
  <p className="metadata">Inicio: {formatDate(data.startedAt)}{data.completedAt&&` · Finalización: ${formatDate(data.completedAt)}`}</p>
  <dl className={styles.facts}><div><dt>Estructuras</dt><dd>{data.total}</dd></div><div><dt>Completadas</dt><dd>{data.completed}</dd></div><div><dt>Pendientes</dt><dd>{data.pending}</dd></div><div><dt>Avance</dt><dd>{data.progress}%</dd></div></dl>
  {notice&&<p role="status">{notice}</p>}{error instanceof ApiError&&error.code&&errors[error.code]?<p role="alert">{errors[error.code]}</p>:<ErrorNotice error={error}/>}
@@ -77,8 +78,8 @@ export function EngineeringPanel({ projectId, onRefresh, onMode }: { projectId:s
  <div className={styles.cards}>{data.structures.map(row=>{const s=row.structure;const image=s.imageCatalogItemId?drawings.images[s.imageCatalogItemId]:undefined;
  return <article className={`stack ${styles.card}`} key={s.id} aria-label={label(row)}>
  <h3>{label(row)}</h3><p>{s.actualLocation??s.location??"Ubicación sin registrar"} · {row.completed?"Completada":"Pendiente"}</p>
- {row.origin&&<p>Tramo {String(row.origin.number).padStart(2,"0")} · {row.origin.submissionId} · Evidencia {row.origin.evidenceVersion}</p>}
- {row.work&&<p>Responsable: {row.work.responsibleSubject} · Paquete: {row.work.packageId}{row.changedAt&&` · Último check: ${formatDate(row.changedAt)} · ${row.work.changedBySubject??""}`}</p>}
+ {row.origin&&<p>Tramo {String(row.origin.number).padStart(2,"0")} · Evidencia {row.origin.evidenceVersion}</p>}
+ {row.work&&<p>Paquete de trabajo{who("Responsable",row.work.responsibleSubject)}{row.changedAt&&` · Último check: ${formatDate(row.changedAt)}`}{row.changedAt&&who("Revisó",row.work.changedBySubject)}</p>}
  <EngineeringStructureDetails structure={s} projectId={projectId} image={image} retryImage={drawings.retry}/>
  <label className={styles.check}><input type="checkbox" checked={row.completed} disabled={!writable||disabled||(data.isIncremental&&!row.work?.canModify)} onChange={e=>void run({kind:"check",id:s.id,requestKey:crypto.randomUUID(),expectedRevision:row.revision,completed:e.target.checked})}/>{data.isIncremental ? "Estructura revisada en Ingeniería" : "Estructura trabajada en Acta de Vanos"}</label>
  {busy&&pending?.kind==="check"&&pending.id===s.id&&<p role="status">Guardando estructura…</p>}
@@ -93,7 +94,7 @@ export function EngineeringPanel({ projectId, onRefresh, onMode }: { projectId:s
  </section>}
  {writable&&!data.isIncremental&&<div className="stack"><button className="button-primary" disabled={disabled||data.pending>0||!data.currentDocumentId} onClick={()=>setConfirm(true)}>Confirmar finalización de Ingeniería</button>
  {confirm&&<div role="dialog" aria-label="Confirmar cierre de Ingeniería"><p>Se congelarán los checks y el Acta vigente. No podrás modificarlos después.</p><button className="button-primary" disabled={disabled} onClick={()=>data.currentDocumentId&&void run({kind:"close",requestKey:crypto.randomUUID(),expectedRevision:data.revision,documentId:data.currentDocumentId})}>Finalizar Ingeniería</button><button className="button-secondary" disabled={busy} onClick={()=>setConfirm(false)}>Cancelar</button></div>}</div>}
- {data.isIncremental&&<><p>Las entregas se reciben progresivamente. Cada Acta confirmada genera su propia tarea comercial.</p><DeliveryHistory projectId={projectId} deliveries={data.deliveries??[]}/></>}
+ {data.isIncremental&&<><p>Las entregas se reciben progresivamente. Cada Acta confirmada genera su propia tarea comercial.</p><DeliveryHistory projectId={projectId} deliveries={data.deliveries??[]} structures={data.structures.map(r=>r.structure)}/></>}
  <details><summary>Historial de Ingeniería</summary>{data.history.map(h=><p key={`${h.structureId}:${h.revision}`}>{{Initialize:"Inicio",Check:"Estructura completada",Uncheck:"Estructura pendiente",UploadActa:"Acta cargada",Complete:"Finalización"}[h.action]??h.action} · {formatDate(h.at)} · {h.actor.name??h.actor.email??"Responsable registrado"}{h.reason&&` · ${h.reason}`}</p>)}</details>
  </section>;
 }

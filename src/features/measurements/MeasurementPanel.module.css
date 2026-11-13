@@ -11,10 +11,10 @@
 .card { min-width: 0; align-content: start; overflow-wrap: anywhere; }
 .card input, .card button { min-height: 44px; }
 .drawing { display: grid; grid-template-columns: minmax(0, 1fr) 6.5rem; grid-template-rows: minmax(11rem, auto) auto; gap: .5rem; align-items: center; }
-.picture { min-width: 0; display: grid; place-items: center; min-height: 11rem; padding: .5rem; background: #f8fafc; border: 1px solid var(--border); border-radius: .5rem; }
+.picture { min-width: 0; display: grid; place-items: center; min-height: 11rem; padding: .5rem; background: var(--surface-subtle); border: 1px solid var(--border); border-radius: .5rem; }
 .picture img { width: 100%; max-height: 14rem; object-fit: contain; }
-.width { grid-column: 1; grid-row: 2; border-top: 2px solid #0891b2; padding-top: .4rem; }
-.height { grid-column: 2; grid-row: 1; border-left: 2px solid #0891b2; padding-left: .4rem; }
+.width { grid-column: 1; grid-row: 2; border-top: 2px solid var(--accent); padding-top: .4rem; }
+.height { grid-column: 2; grid-row: 1; border-left: 2px solid var(--accent); padding-left: .4rem; }
 .width, .height { font-size: .85rem; font-weight: 600; }
 .measured { display: flex; align-items: center; gap: .75rem; min-height: 44px; }
 .measured input { width: 24px; height: 24px; }
@@ -30,13 +30,20 @@
 
 .cardSection { border-top: 1px solid var(--border); padding-top: 1rem; gap: .75rem; }
 .cardSection:first-child { border-top: 0; padding-top: 0; }
-.cardSection h3 { font-size: 1rem; font-weight: 700; color: #164e63; }
+.cardSection h3 { font-size: 1rem; font-weight: 700; color: var(--brand-hover); }
 .cardSection fieldset { min-width: 0; }
 .cardSection textarea { width: 100%; min-height: 5rem; }
 .cardSection summary { cursor: pointer; padding-block: .75rem; }
 .dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
-.dimensions .width, .dimensions .height { grid-area: auto; border: 0; border-top: 2px solid #0891b2; padding: .5rem 0 0; }
-.measured { padding: .75rem; border: 2px solid #0891b2; border-radius: .5rem; font-weight: 700; }
+.dimensions .width, .dimensions .height { grid-area: auto; border: 0; border-top: 2px solid var(--accent); padding: .5rem 0 0; }
+.measured { padding: .75rem; border: 2px solid var(--brand); border-radius: .5rem; background: var(--brand-soft); color: var(--brand-hover); font-weight: 700; cursor: pointer; }
+.measured:has(input:checked) { border-color: var(--success); background: var(--success-soft); color: var(--success); }
+.card { border-top: 3px solid var(--border-strong); }
+.cardStatus { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-start; }
 .canvasStage { position: relative; }
 .inlineText { position: absolute; z-index: 1; width: min(18rem, 50%); background: #fff; color: #111827; border: 2px solid #0066cc; border-radius: .5rem; padding: .75rem; box-shadow: 0 4px 16px #0003; display: grid; gap: .5rem; max-height: 90%; overflow: auto; }
 .inlineText input, .inlineText select, .inlineText button { width: 100%; min-height: 44px; }
+.cardLocked { background: var(--surface-subtle); border-top-color: var(--neutral); }
+.cardLocked .cardSection h3 { color: var(--ink-soft); }
+.lockNote { font-size: .85rem; color: var(--ink-soft); }
+.filters { display: flex; flex-wrap: wrap; gap: .5rem; }

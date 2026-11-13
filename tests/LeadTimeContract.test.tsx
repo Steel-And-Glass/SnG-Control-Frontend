@@ -1,10 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import OverviewPage from "@/app/(app)/management/page";
 import { TaskTimingBadge } from "@/features/tasks/TaskList";
 import { parseManagementOverview, parseManagementTasks } from "@/features/management/parser";
 import { mockBackend, renderOperational } from "./operationalFixtures";
 import { manager } from "./managementFixtures";
+import { datasetFixture } from "./managementDatasetFixtures";
 
 // Wire literals deliberately independent from the shared typed fixtures.
 const backendOverview = {
@@ -23,13 +24,16 @@ const backendTask = { quotationRound: 1,
 };
 
 describe("official Lead Time wire contract", () => {
-  it("renders /management with backend camelCase counts without crashing", async () => {
-    mockBackend(() => backendOverview);
+  it("renders /management with backend camelCase tasks without crashing", async () => {
+    const timings = ["OnTrack", "DueSoon", "DueToday", "DueToday", "Overdue", "Overdue", "Overdue", "CompletedOnTime", "CompletedOnTime"];
+    mockBackend(path => path === "management/dashboard-dataset"
+      ? { ...datasetFixture, totals: { ...datasetFixture.totals, projectCount: 0 }, projects: [], tasks: timings.map((leadTimeStatus, i) => ({ ...backendTask, taskId: `task-${i}`, leadTimeStatus,
+          status: leadTimeStatus === "CompletedOnTime" ? "Completed" : "InProgress" })) }
+      : backendOverview);
     renderOperational(<OverviewPage />, manager);
-    await screen.findByText("Tareas atrasadas");
-    expect(screen.getByText("Tareas atrasadas").parentElement).toHaveTextContent("3");
-    expect(screen.getByText("Vencen hoy").parentElement).toHaveTextContent("2");
-    expect(screen.getByText("Vencen pronto").parentElement).toHaveTextContent("1");
+    expect(await screen.findByRole("heading", { name: "Tareas que requieren atención" })).toBeInTheDocument();
+    expect(within(screen.getByText("Atrasadas").parentElement!).getByText("3")).toBeInTheDocument();
+    expect(within(screen.getByText("Vencen hoy").parentElement!).getByText("2")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
   it("renders an OnTrack task from the actual wire property", () => {

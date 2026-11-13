@@ -12,6 +12,7 @@ import { useResource } from "@/lib/api/useResource";
 import { ManagementAccess, ManagementError } from "./ManagementAccess";
 import { managementService } from "./service";
 import styles from "./Management.module.css";
+import { useDrillFilters,clearDrillFilters } from "./useDrillFilters";
 
 export function ManagementTasksPage() {
   return <ManagementAccess><TasksContent /></ManagementAccess>;
@@ -21,12 +22,16 @@ function TasksContent() {
   const api = useApiClient();
   const load = useCallback((signal: AbortSignal) => managementService.tasks(api, signal), [api]);
   const { data, loading, error, refresh } = useResource(load);
-  const [area, setArea] = useState("");
-  const [status, setStatus] = useState("");
+  const drill = useDrillFilters();
+  const [selectedArea, setArea] = useState<string | null>(null);
+  const [selectedStatus, setStatus] = useState<string | null>(null);
+  const area = selectedArea ?? drill.get("area") ?? "";
+  const status = selectedStatus ?? drill.get("status") ?? "";
   const [timing, setTiming] = useState("");
   const [search, setSearch] = useState("");
   const query = search.trim().toLocaleLowerCase("es-CO");
   const tasks = data?.filter((task) => (!area || task.area === area) && (!status || task.status === status)
+    && (["projectId", "clientId", "city", "productLine"] as const).every(key => !drill.get(key) || task[key] === drill.get(key))
     && (!timing || task.leadTimeStatus === timing)
     && (!query || [task.projectName, task.clientName, task.sgCode ?? "", task.city].some((text) => text.toLocaleLowerCase("es-CO").includes(query))));
   return <div className="page-stack">
@@ -39,7 +44,8 @@ function TasksContent() {
         <label className="field-label">Área<select className="form-control" value={area} onChange={(event) => setArea(event.target.value)}><option value="">Todas</option>{Object.entries(taskAreaLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label className="field-label">Estado<select className="form-control" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Todos</option>{Object.entries(taskStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label className="field-label">Situación<select className="form-control" value={timing} onChange={(event) => setTiming(event.target.value)}><option value="">Todas</option>{Object.entries(timingLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <button className="button-secondary" onClick={() => { setArea(""); setStatus(""); setTiming(""); setSearch(""); }}>Restablecer filtros</button>
+        {drill.toString() && <p className="metadata">Selección recibida desde Gerencia Integral. Restablecer filtros elimina también el alcance de proyecto, cliente, ciudad y línea.</p>}
+        <button className="button-secondary" onClick={() => { clearDrillFilters(); setArea(""); setStatus(""); setTiming(""); setSearch(""); }}>Restablecer filtros</button>
       </section>
       <p role="status" className="metadata">Mostrando {tasks?.length} de {data.length} tareas. Fechas en hora de Colombia.</p>
       {data.length === 0 ? <EmptyState title="Todavía no hay tareas registradas." /> : tasks?.length === 0 ? <EmptyState title="No hay tareas que coincidan con los filtros." /> : <div className="table-scroll" role="region" aria-label="Tareas de toda la operación" tabIndex={0}>

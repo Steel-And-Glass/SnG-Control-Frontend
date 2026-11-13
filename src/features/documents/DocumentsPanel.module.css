@@ -5,15 +5,15 @@
 .file h4 { overflow-wrap: anywhere; font-weight: 600; }
 .file svg { color: var(--ink-soft); margin-top: .15rem; }
 .actions { display: flex; flex-wrap: wrap; gap: 2px 12px; }
-.rowAction { min-height: 32px; padding: 4px 0; font-size: 12px; color: #425b64; }
+.rowAction { min-height: 32px; padding: 4px 0; font-size: 12px; color: var(--ink-soft); }
 .rowAction:hover:not(:disabled) { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
-.rowAction:disabled { color: #7c8b90; }
+.rowAction:disabled { color: var(--neutral); }
 .removeAction { color: var(--danger); }
 .removeAction:hover:not(:disabled) { color: var(--danger); }
 .downloadAll { min-height: 32px; padding: 5px 0; font-size: 12px; color: var(--brand); font-weight: 600; text-align: left; }
 .downloadAll:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .downloadAll:disabled { color: var(--ink-soft); }
-.dropzone { padding: 16px; border: 1px dashed var(--border-strong); background: #fcfdfd; }
+.dropzone { padding: 16px; border: 1px dashed var(--border-strong); background: var(--surface-subtle); }
 .dropzoneHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; }
 .dropzoneHeader > div { flex: 1 1 200px; min-width: 0; }
 .dropzoneHeader p { font-size: 13px; }
@@ -31,6 +31,6 @@
 .empty { margin-top: 12px; color: var(--ink-soft); font-size: 13px; }
 .documents { display: grid; gap: 22px; min-width: 0; }
 .heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-.sectionTitle { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .1em; color: #425b64; }
+.sectionTitle { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); }
 .sectionCount { margin-top: 6px; font-size: 12px; color: var(--ink-soft); }
-.groupTitle { font-size: 12px; font-weight: 600; color: #425b64; }
+.groupTitle { font-size: 12px; font-weight: 600; color: var(--ink-soft); }

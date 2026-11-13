@@ -112,11 +112,13 @@ Los errores de estructura muestran filas faltantes/inesperadas por sección; no 
 
 **Deuda funcional conocida:** el backend actual soporta la primera cotización de Presupuestos y la primera confirmación Comercial. El futuro ciclo cliente solicita cambios → Comercial registra solicitud → vuelve a Presupuestos → Jefe Comercial notificado → nueva cotización → nueva revisión → nueva presentación aún no está implementado. 4E conserva las invariantes V1.
 
-## Gerencia — Frontend 3A
+## Gerencia Integral — G2.1
 
 Gerencia ve una sección adicional en la barra lateral azul pálido, con Resumen y Operación, y un acceso desde Inicio. La home general se conserva. Las URLs gerenciales muestran una denegación segura a otras cuentas sin consultar esos endpoints. Un 403 no cierra sesión.
 
-El resumen consume `GET /api/management/overview`: proyectos, tareas activas (pendientes + en curso), atrasadas, vencimientos de hoy/próximos, estado del trabajo, comparación por área y tareas que requieren atención. Conserva el orden del backend e indica cuántas muestra si el total supera los elementos recibidos (máximo 10). No inventa tendencias ni calcula plazos.
+El dashboard inicial del rol Management reutiliza overview, tasks y quotation-portfolio, e incorpora `GET /api/management/analytics/surfaces`. Muestra superficies cotizadas y de referencia medida, proyectos, tareas, cumplimiento evaluable y atención. Las barras y sus alternativas tabulares filtran por proyecto y área/estado. Proyecto, cliente, ciudad exacta y línea se combinan con AND; se pueden retirar filtros o limpiar la selección. Los enlaces abren proyectos y Operación filtrada. El valor económico y atención son globales y se etiquetan expresamente porque sus endpoints no admiten estos filtros.
+
+Los m² cotizados suman SquareMeters de la cotización comercial vigente: ya incluyen cantidad. La superficie de referencia medida suma ancho real en metros × alto real en metros, una vez por estructura física activa con dimensiones positivas. Se muestran cobertura y exclusiones. No representa vidrio neto, consumo ni fabricación, ni permite restar superficies para inferir trabajo pendiente. La superficie radicada congelada queda no disponible hasta definir la selección de versiones de evidencia; nunca se reconstruye con medidas actuales. No se presentan avances de Producción.
 
 Operación consume `GET /api/management/tasks`. Muestra tareas actuales e históricas, proyecto/cliente/SG, ciudad/línea, área, estado, situación y fechas en Colombia. Los filtros por área, estado y situación y la búsqueda por proyecto/cliente/SG/ciudad son locales, conservan el orden recibido y se pueden restablecer.
 
@@ -624,3 +626,32 @@ Authorization y rol activo permitidos, no-store y errores sanitizados. El servid
 aceptacion exacta, miembros, OP, cuotas, hashes, revisiones y responsabilidad. La UI no calcula
 fabricacion ni interpreta PDFs. Produccion y Logistica reciben una representacion persistente
 versionada en backend; no se crean aqui sus operaciones ni checklists.
+
+## Jefe de Operaciones — P2.4
+
+El área `OperationsHead`, validada por `/api/auth/me`, dispone de **Preparaciones**
+(`/operations`). La bandeja consulta liberaciones y preparaciones en páginas de 50;
+crear una preparación o solicitar extracción exige una acción explícita. No hay escrituras
+al abrir una pantalla ni generación de tareas/checklists de Producción.
+
+`/operations/preparations/{id}` muestra extracción, revisiones, alcance OP/StructureId,
+originales y propuestas, clasificación material/ruta, diagnósticos, evidencias e historial.
+Permite correcciones, adiciones manuales dentro del release, exclusiones/restauraciones,
+observaciones, registro de conflictos, resolución de advertencias autorizadas y reextracción.
+La aprobación exige confirmación; el Backend revalida y congela la revisión con actor, fecha
+revisión exacta y hash. Las versiones Approved/Superseded son de solo lectura.
+
+Los conflictos 28/35, diferencias dimensionales y errores de integridad/alcance siguen
+bloqueados. Adjuntar evidencia o registrar una nota no los resuelve. No se elige entre
+PDF/XLS/XLSX/CSV ni se aplican fórmulas, tolerancias o redondeos en el Frontend.
+
+Límites actuales del contrato: Operaciones entrega IDs de proyecto, radicado y versión,
+pero no nombre/SG, número de radicado ni número de versión documental. Se muestran IDs
+explícitamente, sin sustituirlos por números inventados. La bandeja informa el estado de
+extracción inicial; aprobación y generaciones posteriores se consultan en el detalle.
+Gerencia puede leer una preparación conocida mediante sus endpoints de revisión, pero
+no dispone de descubrimiento/bandeja autorizados en P2.1. No se amplían estos permisos.
+
+El smoke completo Frontend + Backend + PostgreSQL queda pendiente. El intento visual
+mediante Opera fue detenido por la herramienta al no poder verificar la URL. No se han
+aplicado migraciones a `sng_control` ni modificado sus registros para esta implementación.

@@ -1,19 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import type { CurrentUser } from "@/features/auth/types/auth";
 
+// Shows only the person's name and email. The Google Subject is an internal authentication identifier and is never rendered.
 export function UserIdentityCard({ user }: { user: CurrentUser }) {
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
-  async function copySubject() {
-    try {
-      await navigator.clipboard.writeText(user.subject);
-      setCopyState("copied");
-    } catch {
-      setCopyState("error");
-    }
-  }
-
   return (
     <section aria-labelledby="identity-title" className="panel">
       <div className="mb-4 flex items-center gap-3">
@@ -24,14 +14,6 @@ export function UserIdentityCard({ user }: { user: CurrentUser }) {
         <div><dt className="metadata">Nombre</dt><dd className="break-words font-medium">{user.name ?? "No disponible"}</dd></div>
         <div><dt className="metadata">Correo</dt><dd className="break-words font-medium">{user.email ?? "No disponible"}</dd></div>
       </dl>
-      <details className="mt-4 metadata"><summary>Identidad técnica de la sesión</summary>
-      <p className="mt-3">Google Subject</p><p className="break-all font-mono">{user.subject}</p>
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <button className="button-secondary" onClick={() => void copySubject()}>Copiar Subject</button>
-        {copyState === "copied" && <p role="status" className="text-sm text-teal-800">Subject copiado.</p>}
-        {copyState === "error" && <p role="alert" className="text-sm text-red-800">No se pudo copiar. Selecciona el Subject y cópialo manualmente.</p>}
-      </div>
-      </details>
     </section>
   );
 }

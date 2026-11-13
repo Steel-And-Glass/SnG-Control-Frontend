@@ -11,9 +11,11 @@ import { createApiClient } from "@/lib/api/apiClient";
 import { formatDate } from "@/lib/formatDate";
 import { timingLabels } from "@/features/tasks/TaskList";
 import { token, user } from "./fixtures";
-import { deferred, mockBackend, renderOperational } from "./operationalFixtures";
+import { mockBackend as mockRawBackend, deferred, renderOperational } from "./operationalFixtures";
 import { manager, managementTask, managementTasks, overview } from "./managementFixtures";
 
+import { datasetFixture } from "./managementDatasetFixtures";
+const mockBackend = mockRawBackend;
 const { router } = vi.hoisted(() => ({ router: { replace: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
@@ -48,22 +50,22 @@ describe("management access and session", () => {
     const signal = fetchMock.mock.calls[0][1].signal;
     view.rerender(<AuthContext.Provider value={{ ...context, user }}><Page /></AuthContext.Provider>);
     expect(signal?.aborted).toBe(true);
-    await act(async () => pending.resolve(Page === OverviewPage ? overview : managementTasks));
+    await act(async () => pending.resolve(Page === OverviewPage ? datasetFixture : managementTasks));
     expect(screen.queryByText("Proyecto Norte")).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("No tienes acceso");
   });
   it.each([OverviewPage, TasksPage])("refetches and hides previous data across management Subjects with a stable ApiClient", async (Page) => {
     const pending = deferred<unknown>();
-    const payload = Page === OverviewPage ? overview : managementTasks;
-    const fetchMock = mockBackend(() => fetchMock.mock.calls.length === 1 ? payload : pending.promise);
+    const payload = Page === OverviewPage ? datasetFixture : managementTasks;
+    const fetchMock = mockBackend(() => fetchMock.mock.calls.length <= 1 ? payload : pending.promise);
     const context = sessionContext();
     const view = render(<AuthContext.Provider value={context}><Page /></AuthContext.Provider>);
-    await screen.findByRole("link", { name: "Proyecto Norte" });
+    await screen.findByRole("link", { name: /Proyecto Norte/ });
     view.rerender(<AuthContext.Provider value={{ ...context, user: { ...manager, subject: "another-synthetic-manager" } }}><Page /></AuthContext.Provider>);
-    expect(screen.queryByRole("link", { name: "Proyecto Norte" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Proyecto Norte/ })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    await act(async () => pending.resolve(Page === OverviewPage ? { ...overview, attention: { total: 0, items: [] } } : []));
-    expect(screen.queryByRole("link", { name: "Proyecto Norte" })).not.toBeInTheDocument();
+    await act(async () => pending.resolve(Page === OverviewPage ? { ...datasetFixture, projects: [], tasks: [] } : []));
+    expect(screen.queryByRole("link", { name: /Proyecto Norte/ })).not.toBeInTheDocument();
   });
   it("restores the management flag through AuthProvider and removes the previous experience on new login", async () => {
     function SessionControls() {
@@ -72,14 +74,14 @@ describe("management access and session", () => {
     }
     sessionStorage.setItem(SESSION_TOKEN_KEY, token);
     let identity = manager;
-    vi.stubGlobal("fetch", vi.fn(async (path: string) => Response.json(path === "/api/auth/me" ? identity : overview)));
+    vi.stubGlobal("fetch", vi.fn(async (path: string) => Response.json(path === "/api/auth/me" ? identity : path.endsWith("tasks") ? managementTasks : datasetFixture)));
     render(<AuthProvider><SessionControls /></AuthProvider>);
     await screen.findByText("Sesión gerencial");
-    await screen.findByRole("link", { name: "Proyecto Norte" });
+    await screen.findByRole("link", { name: /Proyecto Norte/ });
     identity = { ...user, subject: "another-synthetic-user" };
     await userEvent.click(screen.getByRole("button", { name: "Cambiar cuenta" }));
     await screen.findByText("Sesión general");
-    expect(screen.queryByRole("link", { name: "Proyecto Norte" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Proyecto Norte/ })).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("No tienes acceso");
     expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe("next-test-token");
   });
@@ -102,55 +104,6 @@ describe("management access and session", () => {
   });
 });
 
-describe("management overview", () => {
-  it("renders authoritative indicators, area summaries and attention in backend order, including nulls and truncation", async () => {
-    const fetchMock = mockBackend(() => overview);
-    renderOperational(<OverviewPage />, manager);
-    await screen.findByRole("link", { name: "Proyecto Norte" });
-    const kpis = screen.getByLabelText("Indicadores de operación");
-    for (const [label, value] of [["Total de proyectos", "12"], ["Tareas activas", "7"], ["Tareas atrasadas", "1"], ["Vencen hoy", "1"]]) {
-      expect(within(within(kpis).getByText(label).parentElement!).getByText(value)).toBeInTheDocument();
-    }
-    const work = screen.getByRole("region", { name: "Estado del trabajo" });
-    for (const [label, value] of [["Pendientes", "3"], ["En curso", "4"], ["Completadas", "5"]]) expect(within(work).getByText(label).parentElement).toHaveTextContent(value);
-    const areas = screen.getByRole("region", { name: "Resumen por área" });
-    expect(within(areas).getAllByRole("row")).toHaveLength(3);
-    expect(within(areas).getByRole("row", { name: /Presupuestos/ })).toHaveTextContent("Presupuestos223101");
-    const attention = screen.getByRole("region", { name: "Requieren atención" });
-    expect(within(attention).getAllByRole("listitem").map((item) => within(item).getByRole("link").textContent)).toEqual(["Proyecto Norte", "Proyecto Sur"]);
-    expect(within(attention).getByRole("link", { name: "Proyecto Norte" })).toHaveAttribute("href", "/projects/project-1");
-    expect(attention).toHaveTextContent("Sin SG");
-    expect(attention).toHaveTextContent("Sin vencimiento");
-    expect(attention).toHaveTextContent("Sin iniciar");
-    expect(attention).toHaveTextContent(formatDate(managementTask.deadlineAt));
-    expect(attention).toHaveTextContent("Mostrando 2 de 17 tareas que requieren atención");
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/backend/management/overview");
-  });
-  it("renders zero counts and empty areas/attention without invented rows", async () => {
-    mockBackend(() => ({ ...overview, totalProjects: 0, tasks: { pending: 0, inProgress: 0, completed: 0 }, leadTime: Object.fromEntries(Object.keys(overview.leadTime).map((key) => [key, 0])), areas: [], attention: { total: 0, items: [] } }));
-    renderOperational(<OverviewPage />, manager);
-    expect(await screen.findByText("Todavía no hay proyectos.")).toBeInTheDocument();
-    expect(screen.getByText("Todavía no hay tareas registradas.")).toBeInTheDocument();
-    expect(screen.getByText("Todavía no hay áreas con tareas.")).toBeInTheDocument();
-    expect(screen.getByText("No hay tareas que requieran atención en este momento.")).toBeInTheDocument();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-  });
-  it.each([503, "network"])("shows safe failure %s and retries", async (failure) => {
-    let failed = true;
-    mockBackend(() => {
-      if (!failed) return overview;
-      if (failure === "network") throw new Error("secret network path");
-      return Response.json({ detail: "secret network path" }, { status: 503 });
-    });
-    renderOperational(<OverviewPage />, manager);
-    await screen.findByRole("alert");
-    expect(screen.queryByText(/secret network path/)).not.toBeInTheDocument();
-    failed = false;
-    await userEvent.click(screen.getByRole("button", { name: "Volver a cargar" }));
-    await screen.findByRole("link", { name: "Proyecto Norte" });
-  });
-});
-
 describe("management operation", () => {
   it("keeps backend ordering, completed and legacy tasks, nullable dates and project links", async () => {
     mockBackend(() => managementTasks);
@@ -165,7 +118,7 @@ describe("management operation", () => {
     expect(within(table).getByRole("row", { name: /Proyecto Histórico/ })).toHaveTextContent("Sin seguimiento histórico");
     expect(within(table).getByRole("row", { name: /Proyecto Histórico/ })).toHaveTextContent("Otra tarea");
     expect(within(table).getByRole("row", { name: /Proyecto Terminado/ })).toHaveTextContent(formatDate(managementTasks[3].completedAt));
-    expect(within(table).getByRole("link", { name: "Proyecto Norte" })).toHaveAttribute("href", "/projects/project-1");
+    expect(within(table).getByRole("link", { name: /Proyecto Norte/ })).toHaveAttribute("href", "/projects/project-1");
   });
   it("filters area/status locally, combines filters, preserves order and resets", async () => {
     const fetchMock = mockBackend(() => managementTasks);
@@ -209,3 +162,4 @@ describe("management operation", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 });
+

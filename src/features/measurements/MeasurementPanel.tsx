@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api/apiError";
 import { saveDownload } from "@/lib/api/saveDownload";
 import { formatDate } from "@/lib/formatDate";
 import { StructureCard, useMeasurementImages } from "./StructureCard";
-import { IncrementalSubmissions, DeliveryHistory } from "./IncrementalSubmissions";
+import { IncrementalSubmissions, DeliveryHistory, structureLabel } from "./IncrementalSubmissions";
 import { metresToMm, mmToMetres } from "./units";
 import { technicalText } from "./technicalText";
 import styles from "./MeasurementPanel.module.css";
@@ -29,6 +29,7 @@ export function MeasurementPanel({ projectId, onRefresh }: { projectId: string; 
   const [description, setDescription] = useState(""); const [width, setWidth] = useState(""); const [height, setHeight] = useState("");
   const [uploads, setUploads] = useState<DocumentUpload[]>([]);
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<"all" | "pending" | "done">("all");
   const drawings = useMeasurementImages(projectId, data?.structures ?? []);
   const dirtyChanged = useCallback((id: string, dirty: boolean) => { setDirtyIds(previous => { if (previous.has(id) === dirty) return previous; const next = new Set(previous); if (dirty) next.add(id); else next.delete(id); return next; }); }, []);
   useEffect(() => {
@@ -111,7 +112,11 @@ export function MeasurementPanel({ projectId, onRefresh }: { projectId: string; 
     {!data.checklistId ? <>{writable && <button className="button-primary" disabled={busy} onClick={() => void run("initialize")}>Iniciar toma de medidas</button>}<p>El checklist aún no ha sido iniciado.</p></> : <>
       <p>Iniciales: {data.summary.initial} · Vigentes: {data.summary.active} · Medidas: {data.summary.measured} · Pendientes: {data.summary.pending} · Agregadas: {data.summary.added} · Retiradas: {data.summary.retired}</p>
       <label>Avance: {data.summary.progress}% <progress aria-label="Avance de medición" max={100} value={data.summary.progress} /></label>
-      <div className={styles.cards}>{data.structures.filter(s => !s.retiredAt).map(s => <StructureCard
+      <div className={styles.filters} role="group" aria-label="Filtrar estructuras">
+        {([["all", "Ver todas", data.structures.filter(s => !s.retiredAt).length], ["pending", "Ver pendientes", data.structures.filter(s => !s.retiredAt && !s.measuredAt).length], ["done", "Ver completas", data.structures.filter(s => !s.retiredAt && !!s.measuredAt).length]] as const).map(([value, label, count]) =>
+          <button key={value} type="button" className={filter === value ? "button-primary" : "button-secondary"} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} ({count})</button>)}
+      </div>
+      <div className={styles.cards}>{data.structures.filter(s => !s.retiredAt && (filter === "all" || (filter === "done") === !!s.measuredAt)).map(s => <StructureCard
         key={s.id} deliveryNumber={data.deliveries?.find(d => d.structureIds.includes(s.id))?.number} structure={s} projectId={projectId} writable={writable && !frozen.has(s.id) && !submittingTranche} disabled={disabled}
         saving={busy && pending?.action === "RecordActual" && pending.structureId === s.id}
         image={s.imageCatalogItemId ? drawings.images[s.imageCatalogItemId] : undefined} retryImage={drawings.retry}
@@ -139,16 +144,16 @@ export function MeasurementPanel({ projectId, onRefresh }: { projectId: string; 
       <ul>{data.documents.map(d => <li key={d.id}><button className="text-link" disabled={busy} onClick={() => void download(d)}>{d.originalFileName}</button> · {d.contentType ?? "Archivo"} · {d.sizeBytes} bytes · {d.isCurrent ? "Vigente" : "Sustituido"}</li>)}</ul>
       {writable && !data.isIncremental && <button className="button-primary" disabled={disabled || dirtyIds.size > 0 || data.summary.active === 0 || data.summary.pending > 0 || !current.length} onClick={() => setConfirmation({ action: "Submit", documentIds: current.map(d => d.id) })}>Radicar medidas</button>}
       {data.isIncremental && <IncrementalSubmissions key={`${projectId}:${activeRole}:${user?.subject}`} data={data} writable={writable} disabled={busy || !!pending} dirty={dirtyIds.size > 0} onBusy={setSubmittingTranche} onRefresh={async signal => { const fresh = await load(signal); if (signal.aborted) return; resource.update(fresh); await onRefresh(signal); }} />}
-      {data.deliveries && <DeliveryHistory projectId={projectId} deliveries={data.deliveries} />}
-      {data.submissionId && <p role="status">Medidas radicadas · {formatDate(data.submittedAt!)} · {data.submissionId}. Checklist y documentos congelados para su consulta por Ingeniería.</p>}
+      {data.deliveries && <DeliveryHistory projectId={projectId} deliveries={data.deliveries} structures={data.structures} />}
+      {data.submissionId && <p role="status">Medidas radicadas · {formatDate(data.submittedAt!)}. Checklist y documentos congelados para su consulta por Ingeniería.</p>}
       {data.snapshot?.report && <button className="button-secondary" disabled={busy} onClick={() => void downloadReport()}>Descargar reporte PDF de Instalación</button>}
     </>}
     {confirmation && <MeasurementConfirmation hasDrafts={confirmation.action === "Retire" && ["", "technical:", "sketch:", "comparison:", "modification:"].some(prefix => dirtyIds.has(`${prefix}${confirmation.structureId}`))} action={confirmation} data={data} onCancel={() => setConfirmation(null)} onConfirm={() => { setConfirmation(null); command(confirmation); }} />}
     {data.structures.some(s => s.retiredAt) && <details><summary>Estructuras retiradas</summary><ul>{data.structures.filter(s => s.retiredAt).map(s => <li key={s.id}>
-      {s.itemId ? `Ítem ${s.itemNumber ?? ""} · Unidad ${s.unitOrdinal}/${s.unitCount}` : "Agregada en obra"} · {s.id} · {s.description} {s.location} · Retirada {formatDate(s.retiredAt!)} · {data.history.filter(e => e.structureId === s.id && e.action === "Retire").at(-1)?.actor.name ?? "Cuenta de Instalación"}
-      {writable && <button className="button-secondary" disabled={disabled} onClick={() => setConfirmation({ action: "Reinstate", structureId: s.id })}>Reintegrar {s.id.slice(0, 8)}</button>}
+      {s.itemId ? `Ítem ${s.itemNumber ?? ""} · Unidad ${s.unitOrdinal}/${s.unitCount}` : "Agregada en obra"} · {s.description} {s.location} · Retirada {formatDate(s.retiredAt!)} · {data.history.filter(e => e.structureId === s.id && e.action === "Retire").at(-1)?.actor.name ?? "Cuenta de Instalación"}
+      {writable && <button className="button-secondary" disabled={disabled} onClick={() => setConfirmation({ action: "Reinstate", structureId: s.id })}>Reintegrar {structureLabel(data.structures, s.id)}</button>}
     </li>)}</ul></details>}
-    <details><summary>Historial de cambios</summary><ol>{data.history.map(event => <li key={event.id}>{labels[event.action] ?? event.action} {event.structureId?.slice(0, 8)} · {event.actor.name ?? event.actor.email ?? "Cuenta de Instalación"} · {formatDate(event.at)}{event.assessment && <p>Revisión: {event.assessment.comparisonAfter?.reason ?? "Sin cambio"} · Modificación: {event.assessment.modificationAfter?.versionId ?? "Sin modificación"} · {event.assessment.modificationAfter?.reason} · {event.assessment.modificationAfter?.description}</p>}{event.technical && <p>Ficha anterior: {technicalText(event.technical.before)} · Ficha guardada: {technicalText(event.technical.after)}</p>}{event.sketch && <p>Versión anterior: {event.sketch.before ?? "Sin croquis"} · Versión guardada: {event.sketch.after}</p>}{event.details && <p>Anterior: {event.details.before.width == null ? "—" : metresToMm(event.details.before.width)} × {event.details.before.height == null ? "—" : metresToMm(event.details.before.height)} mm · {event.details.before.systemText ?? "Sin registrar"}. Guardado: {event.details.after.width == null ? "—" : metresToMm(event.details.after.width)} × {event.details.after.height == null ? "—" : metresToMm(event.details.after.height)} mm · {event.details.after.systemText} · Tipo: {event.details.after.measurementType ?? "Sin clasificar"} · Ubicación: {event.details.before.actualLocation ?? "Sin registrar"} → {event.details.after.actualLocation ?? "Sin registrar"} · Observaciones anteriores: {event.details.before.installationObservations ?? "Sin contenido"} · Observaciones guardadas: {event.details.after.installationObservations ?? "Sin contenido"}</p>}</li>)}</ol></details>
+    <details><summary>Historial de cambios</summary><ol>{data.history.map(event => <li key={event.id}>{labels[event.action] ?? event.action}{event.structureId ? ` · ${structureLabel(data.structures, event.structureId)}` : ""} · {event.actor.name ?? event.actor.email ?? "Cuenta de Instalación"} · {formatDate(event.at)}{event.assessment && <p>Revisión: {event.assessment.comparisonAfter?.reason ?? "Sin cambio"} · Modificación: {event.assessment.modificationAfter ? "Registrada" : "Sin modificación"} · {event.assessment.modificationAfter?.reason} · {event.assessment.modificationAfter?.description}</p>}{event.technical && <p>Ficha anterior: {technicalText(event.technical.before)} · Ficha guardada: {technicalText(event.technical.after)}</p>}{event.sketch && <p>Croquis: {event.sketch.before ? "versión anterior conservada" : "sin croquis previo"} · {event.sketch.after ? "nueva versión guardada" : "sin croquis"}</p>}{event.details && <p>Anterior: {event.details.before.width == null ? "—" : metresToMm(event.details.before.width)} × {event.details.before.height == null ? "—" : metresToMm(event.details.before.height)} mm · {event.details.before.systemText ?? "Sin registrar"}. Guardado: {event.details.after.width == null ? "—" : metresToMm(event.details.after.width)} × {event.details.after.height == null ? "—" : metresToMm(event.details.after.height)} mm · {event.details.after.systemText} · Tipo: {event.details.after.measurementType ?? "Sin clasificar"} · Ubicación: {event.details.before.actualLocation ?? "Sin registrar"} → {event.details.after.actualLocation ?? "Sin registrar"} · Observaciones anteriores: {event.details.before.installationObservations ?? "Sin contenido"} · Observaciones guardadas: {event.details.after.installationObservations ?? "Sin contenido"}</p>}</li>)}</ol></details>
   </section>;
 }
 
@@ -162,7 +167,7 @@ function MeasurementConfirmation({ action, data, hasDrafts, onCancel, onConfirm 
   const structure = action.action === "Retire" || action.action === "Reinstate" ? data.structures.find(s => s.id === action.structureId) : null;
   return <dialog ref={dialog} aria-labelledby="measurement-confirmation-title" className={`panel stack ${styles.confirmation}`} onCancel={event => { event.preventDefault(); onCancel(); }}>
     <h3 id="measurement-confirmation-title">{action.action === "Reinstate" ? "Confirmar reintegración" : action.action === "Retire" ? "Confirmar retiro" : "Confirmar radicación"}</h3>
-    {structure && <p>{structure.itemId ? `Ítem ${structure.itemNumber ?? ""} · Unidad ${structure.unitOrdinal}/${structure.unitCount}` : "Agregada en obra"}<br />{structure.id}<br />{structure.description} {structure.location}</p>}
+    {structure && <p>{structure.itemId ? `Ítem ${structure.itemNumber ?? ""} · Unidad ${structure.unitOrdinal}/${structure.unitCount}` : "Agregada en obra"}<br />{structure.description} {structure.location}</p>}
     <p>{action.action === "Reinstate" ? "La estructura recuperará sus datos y posición. Deberás confirmar de nuevo Medido. ¿Confirmas la reintegración?" : action.action === "Retire" ? "La estructura se excluirá del total vigente y conservará su historial. ¿Confirmas el retiro?" : "Se congelarán el checklist y los documentos vigentes y se completará la tarea. ¿Confirmas la radicación?"}</p>
     {hasDrafts && <p role="alert">Retirar esta estructura descartará sus borradores sin guardar. Cancela para conservarlos y guardarlos primero.</p>}
     <button type="button" className="button-primary" onClick={onConfirm}>Confirmar</button>

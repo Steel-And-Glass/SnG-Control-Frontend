@@ -12,10 +12,14 @@ const management = [
   { href: "/management/tasks", label: "Operación", icon: "tasks", description: "Operación transversal" },
   operational[1], operational[2],
 ] as const;
+// Areas without a client-portfolio role see only their projects, tasks and alerts.
+const workspace = [operational[0], operational[2], operational[3], operational[4]] as const;
 export const navigationByRole = {
-  CommercialAdvisor: operational, Budgets: operational, CommercialHead: operational, Accounting: operational, Installation: operational, Engineering: operational, Management: management,
+  OperationsHead: [{ href: "/operations", label: "Preparaciones", icon: "tasks", description: "Revisión documental de Operaciones" }] as const,
+  CommercialAdvisor: operational, Budgets: workspace, CommercialHead: operational, Accounting: workspace, Installation: workspace, Engineering: workspace, Management: management,
 } satisfies Record<AvailableRole, readonly { href: string; label: string; icon: string; description: string }[]>;
 export const capabilitiesByRole = {
+  OperationsHead: { createClient: false, createProject: false, emptyProjects: "Consulta las liberaciones en Preparaciones." },
   CommercialAdvisor: { createClient: true, createProject: true, emptyProjects: "Todavía no hay proyectos." },
   Budgets: { createClient: false, createProject: false, emptyProjects: "No tienes proyectos disponibles en Presupuestos." },
   CommercialHead: { createClient: false, createProject: false, emptyProjects: "No tienes proyectos disponibles en Jefatura Comercial." },

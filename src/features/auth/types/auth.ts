@@ -1,6 +1,7 @@
-export const systemRoles = ["CommercialAdvisor", "Budgets", "CommercialHead", "Accounting", "Engineering", "Production", "Logistics", "Installation", "Management"] as const;
+export const systemRoles = ["CommercialAdvisor", "Budgets", "CommercialHead", "Accounting", "Engineering", "Production", "Logistics", "Installation", "Management", "OperationsHead"] as const;
 export type SystemRole = typeof systemRoles[number];
 export const availableRoleLabels = {
+  OperationsHead: "Jefe de Operaciones",
   Engineering: "Ingeniería",
   CommercialAdvisor: "Asesor Comercial", Budgets: "Presupuestos", CommercialHead: "Jefe Comercial", Management: "Gerencia", Accounting: "Contabilidad", Installation: "Instalación",
 } as const;

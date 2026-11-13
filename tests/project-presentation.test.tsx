@@ -4,6 +4,7 @@ import { ProjectHeader } from "@/features/projects/ProjectHeader";
 import { ProjectStatusStrip } from "@/features/projects/ProjectStatusStrip";
 import Home from "@/app/(app)/page";
 import { client, project, task, inProgressTask, notification, renderOperational } from "./operationalFixtures";
+import { user } from "./fixtures";
 import { formatDate } from "@/lib/formatDate";
 import { TaskList } from "@/features/tasks/TaskList";
 import { NotificationList } from "@/features/notifications/NotificationList";
@@ -44,10 +45,10 @@ describe("project workspace presentation", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     for (const text of [client.name, project.productLine, "SG007", "Responsable comercial"]) expect(screen.getByText(text)).toBeInTheDocument();
     expect(container).toHaveTextContent(project.city);
-    expect(container).not.toHaveTextContent(project.createdBy!.subject);
+    expect(container).not.toHaveTextContent(user.subject);
   });
   it("handles absent SG and creator without inventing identity", () => {
-    render(<ProjectHeader project={{ ...project, sgCode: null, createdBy: null }} clientName={client.name} />);
+    render(<ProjectHeader project={{ ...project, sgCode: null, createdByName: null, isCreatedByMe: false }} clientName={client.name} />);
     expect(screen.getByText("Sin SG")).toBeInTheDocument();
     expect(screen.getByText("No disponible")).toBeInTheDocument();
   });
@@ -68,11 +69,12 @@ describe("project workspace presentation", () => {
     expect(screen.getByText("Sin tareas asignadas")).toBeInTheDocument();
     expect(screen.queryByText(/Vence:/)).not.toBeInTheDocument();
   });
-  it("offers the four real home shortcuts and secondary technical identity", () => {
+  it("offers the four real home shortcuts and the signed-in name without the Google Subject", () => {
     renderOperational(<Home />);
     expect(screen.getByRole("heading", { name: "SnG Control", level: 1 })).toBeInTheDocument();
     const links = within(screen.getByRole("navigation", { name: "Accesos rápidos" })).getAllByRole("link");
     expect(links.map((link) => link.getAttribute("href"))).toEqual(["/clients", "/projects", "/tasks", "/notifications"]);
-    expect(screen.getByText("Identidad técnica de la sesión").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByRole("heading", { name: "Sesión iniciada", level: 2 })).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(user.subject);
   });
 });

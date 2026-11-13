@@ -10,7 +10,7 @@ export function ProjectHeader({ project, clientName }: { project: Project; clien
     </div>
     <p className={styles.sgCode} aria-label="Código SG actual">{project.sgCode ?? "Sin SG"}</p>
     <dl className={styles.projectFacts}>
-      <div><dt>Responsable comercial</dt><dd>{[project.createdBy?.name, project.createdBy?.email].filter(Boolean).join(" · ") || "No disponible"}</dd></div>
+      <div><dt>Responsable comercial</dt><dd>{project.createdByName || "No disponible"}</dd></div>
       <div><dt>Creación</dt><dd>{formatDate(project.createdAt)}</dd></div>
     </dl>
   </header>;

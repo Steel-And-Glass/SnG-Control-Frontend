@@ -5,9 +5,16 @@ import { ApiError } from "@/lib/api/apiError";
 import { ErrorNotice } from "@/lib/api/ErrorNotice";
 import { saveDownload } from "@/lib/api/saveDownload";
 import { formatDate } from "@/lib/formatDate";
-import type { MeasurementDelivery, MeasurementState, MeasurementSubmissionCommand } from "./contracts";
+import { usePersonLabel } from "@/features/auth/hooks/usePersonLabel";
+import type { MeasurementDelivery, MeasurementState, MeasurementSubmissionCommand, Structure } from "./contracts";
 
-export function DeliveryHistory({ projectId, deliveries }: { projectId: string; deliveries: MeasurementDelivery[] }) {
+export function structureLabel(structures: Pick<Structure, "id" | "itemNumber" | "unitOrdinal" | "unitCount" | "location" | "actualLocation">[], id: string) {
+  const s = structures.find(item => item.id === id);
+  return s ? `${s.itemNumber ?? "Agregada en obra"} · Unidad ${s.unitOrdinal}/${s.unitCount} · ${s.actualLocation ?? s.location ?? "Sin ubicación"}` : "Estructura no disponible";
+}
+
+export function DeliveryHistory({ projectId, deliveries, structures = [] }: { projectId: string; deliveries: MeasurementDelivery[]; structures?: Structure[] }) {
+  const who = usePersonLabel();
   const api = useApiClient();
   const operation = useRef<AbortController | null>(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState<unknown>();
@@ -22,15 +29,15 @@ export function DeliveryHistory({ projectId, deliveries }: { projectId: string; 
   return <section className="stack" aria-label="Radicaciones enviadas"><h3>Radicaciones enviadas</h3>
     <ErrorNotice error={error} />
     {!deliveries.length && <p>Aún no hay tramos radicados.</p>}
-    <ol>{deliveries.map(d => <li key={d.id}>
+    <ol className="stack">{deliveries.map(d => <li key={d.id} className="panel stack">
       <h4>Tramo {String(d.number).padStart(2, "0")}</h4>
-      <p>{formatDate(d.submittedAt)} · Responsable: {d.submittedBySubject} · {d.structureIds.length} estructuras identificadas</p>
-      <p>{d.evidenceStatus === "COMPLETE" ? "Radicación confirmada" : "Registro histórico con evidencia incompleta; no admite operaciones incrementales."}</p>
-      <ul>{d.structureIds.map(id => <li key={id}>{id}</li>)}</ul>
-      <ul>{d.documents.map(doc => <li key={doc.documentId}>{doc.fileName ?? "Documento histórico"} · Versión documental: {doc.documentId}
-        <p>Respalda: {doc.structureIds.join(", ") || "Alcance no reconstruible"}</p>
+      <p>{formatDate(d.submittedAt)}{who("Responsable",d.submittedBySubject)} · {d.structureIds.length} estructuras identificadas</p>
+      <p><span className={`badge ${d.evidenceStatus === "COMPLETE" ? "badge-success" : "badge-warning"}`}>{d.evidenceStatus === "COMPLETE" ? "Radicación confirmada" : "Registro histórico con evidencia incompleta; no admite operaciones incrementales."}</span></p>
+      <ul>{d.structureIds.map(id => <li key={id}>{structureLabel(structures, id)}</li>)}</ul>
+      <ul>{d.documents.map(doc => <li key={doc.documentId}>{doc.fileName ?? "Documento histórico"}
+        <p>Respalda: {doc.structureIds.map(id => structureLabel(structures, id)).join("; ") || "Alcance no reconstruible"}</p>
         {doc.sha256 && <details><summary>Integridad documental SHA-256</summary><code>{doc.sha256}</code></details>}
-        {doc.associatedAt && <p>Asociado {formatDate(doc.associatedAt)} por {doc.associatedBySubject}</p>}
+        {doc.associatedAt && <p>Asociado {formatDate(doc.associatedAt)}{who("Por",doc.associatedBySubject)}</p>}
       </li>)}</ul>
       {d.reportAvailability === "PRESENT" ? <button className="button-secondary" disabled={busy} onClick={() => void download(d.id)}>Descargar PDF Tramo {String(d.number).padStart(2, "0")}</button> : <p>PDF histórico no disponible.</p>}
     </li>)}</ol>
@@ -87,16 +94,16 @@ export function IncrementalSubmissions({ data, writable, disabled, dirty, onBusy
         {eligible.map(s => <label className="block" key={s.id}><input type="checkbox" checked={selected.includes(s.id)} disabled={selected.length >= 500 && !selected.includes(s.id)} onChange={e => {
           setSelected(previous => e.target.checked ? [...previous, s.id] : previous.filter(id => id !== s.id));
           setCoverage(previous => Object.fromEntries(Object.entries(previous).map(([doc, ids]) => [doc, ids.filter(id => id !== s.id)])));
-        }} />{s.itemNumber ?? "Agregada en obra"} · Unidad {s.unitOrdinal}/{s.unitCount} · {s.actualLocation ?? s.location} · {s.id}</label>)}
+        }} />{s.itemNumber ?? "Agregada en obra"} · Unidad {s.unitOrdinal}/{s.unitCount} · {s.actualLocation ?? s.location}</label>)}
         {!eligible.length && <p>No hay estructuras medidas y completas disponibles para una nueva entrega.</p>}
       </fieldset>
       {selected.length >= 500 && <p role="status">Máximo 500 estructuras por tramo.</p>}
       <fieldset disabled={locked || confirm}><legend>Documentos y estructuras respaldadas</legend>
         <p>Incluye solo los archivos necesarios y declara las estructuras que respalda cada versión.</p>
-        {documents.map(doc => <fieldset key={doc.id}><legend>{doc.originalFileName}</legend>{selected.map(id => <label className="block" key={id}><input type="checkbox" checked={coverage[doc.id]?.includes(id) ?? false} onChange={e => setCoverage(previous => ({ ...previous, [doc.id]: e.target.checked ? [...(previous[doc.id] ?? []), id] : (previous[doc.id] ?? []).filter(s => s !== id) }))} />Respalda {id}</label>)}</fieldset>)}
+        {documents.map(doc => <fieldset key={doc.id}><legend>{doc.originalFileName}</legend>{selected.map(id => <label className="block" key={id}><input type="checkbox" checked={coverage[doc.id]?.includes(id) ?? false} onChange={e => setCoverage(previous => ({ ...previous, [doc.id]: e.target.checked ? [...(previous[doc.id] ?? []), id] : (previous[doc.id] ?? []).filter(s => s !== id) }))} />Respalda {structureLabel(data.structures, id)}</label>)}</fieldset>)}
       </fieldset>
       <button className="button-primary" disabled={locked || !selectedValid || confirm} onClick={prepare}>Radicar selección</button>
-      {confirm && <SubmissionConfirmation count={selected.length} ids={selected} names={documents.filter(d => coverage[d.id]?.some(id => selected.includes(id))).map(d => d.originalFileName)} busy={busy || !!pending}
+      {confirm && <SubmissionConfirmation count={selected.length} ids={selected.map(id => structureLabel(data.structures, id))} names={documents.filter(d => coverage[d.id]?.some(id => selected.includes(id))).map(d => d.originalFileName)} busy={busy || !!pending}
         onCancel={() => setConfirm(false)} onConfirm={() => void submit({ requestKey: crypto.randomUUID(), expectedRevision: data.revision, structureIds: [...selected], documents: documents.flatMap(d => {
           const ids = (coverage[d.id] ?? []).filter(id => selected.includes(id)); return ids.length ? [{ documentId: d.id, structureIds: ids }] : [];
         }) })} />}
@@ -109,7 +116,7 @@ function SubmissionConfirmation({ count, ids, names, busy, onConfirm, onCancel }
   const dialog = useRef<HTMLDialogElement>(null); const cancel = useRef<HTMLButtonElement>(null);
   useEffect(() => { const element = dialog.current!; const previous = document.activeElement; element.showModal(); cancel.current?.focus(); return () => { element.close(); if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); }; }, []);
   return <dialog ref={dialog} className="panel stack" aria-label="Confirmar radicación por tramo" onCancel={e => { e.preventDefault(); if (!busy) onCancel(); }}>
-    <h3>Confirmar radicación de {count} estructuras</h3><ul>{ids.map(id => <li key={id}>{id}</li>)}</ul>
+    <h3>Confirmar radicación de {count} estructuras</h3><ul>{ids.map((text, index) => <li key={index}>{text}</li>)}</ul>
     <h4>Documentos incluidos</h4>{names.length ? <ul>{names.map((name, index) => <li key={index}>{name}</li>)}</ul> : <p>Sin documentos asociados.</p>}
     <p>Las medidas, ficha técnica, croquis y evidencia de estas estructuras quedarán congelados. Ingeniería recibirá este tramo; las demás estructuras seguirán editables.</p>
     <button className="button-primary" disabled={busy} onClick={onConfirm}>Confirmar tramo</button><button ref={cancel} className="button-secondary" disabled={busy} onClick={onCancel}>Cancelar</button>

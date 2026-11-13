@@ -86,7 +86,7 @@ it("opens retirement confirmation with focus and identifies the selected physica
  const dialog = screen.getByRole("dialog", { name: "Confirmar retiro" });
  expect(within(dialog).getByRole("button", { name: "Cancelar" })).toHaveFocus();
  expect(dialog).toHaveTextContent("Ítem V1 · Unidad 2/2");
- expect(dialog).toHaveTextContent(ready.structures[1].id);
+ expect(dialog).not.toHaveTextContent(ready.structures[1].id);
  expect(fetch.mock.calls.filter(([, init]) => init.method === "POST")).toHaveLength(0);
 });
 
@@ -110,12 +110,12 @@ it("retires only the confirmed unit, recovers server counts on reopen and retain
  const confirm = screen.getByRole("button", { name: "Confirmar" }); fireEvent.click(confirm); fireEvent.click(confirm);
  await screen.findByText(/Vigentes: 1/);
  expect(screen.getAllByRole("checkbox", { name: /^Medido / })).toHaveLength(1);
- expect(screen.queryByRole("button", { name: `Retirar estructura ${target.id.slice(0, 8)}` })).not.toBeInTheDocument();
+ expect(screen.queryByRole("button", { name: `Retirar estructura ${target.itemNumber ?? "agregada en obra"} · Unidad ${target.unitOrdinal}/${target.unitCount}` })).not.toBeInTheDocument();
  expect(fetch.mock.calls.filter(([, init]) => init.method === "POST")).toHaveLength(1);
  view.unmount(); renderOperational(<MeasurementPanel projectId={id} onRefresh={vi.fn()} />, installer);
  await screen.findByText(/Vigentes: 1/);
  expect(screen.getAllByRole("checkbox", { name: /^Medido / })).toHaveLength(1);
- await userEvent.click(screen.getByText("Estructuras retiradas")); expect(screen.getByText(new RegExp(target.id))).toBeVisible();
+ await userEvent.click(screen.getByText("Estructuras retiradas")); expect(screen.getByText(/Ítem V1 · Unidad 2\/2/)).toBeVisible(); expect(document.body).not.toHaveTextContent(target.id);
  await userEvent.click(screen.getByText("Historial de cambios")); expect(screen.getByText(/Estructura retirada.*Installer/)).toBeVisible();
 });
 it("Escape cancels retirement without sending a command", async () => {

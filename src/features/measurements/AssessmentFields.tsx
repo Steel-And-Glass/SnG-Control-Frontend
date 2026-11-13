@@ -22,6 +22,6 @@ export function AssessmentFields({ structure: s, writable, disabled, onCommand, 
  <label>Descripción de modificación<textarea maxLength={4000} value={modification.value.description} onChange={e => modification.setValue({ ...modification.value, description: e.target.value })} /></label>
  <label><input type="checkbox" disabled={!s.sketchVersionId} checked={!!s.sketchVersionId && modification.value.sketchVersionId === s.sketchVersionId} onChange={e => modification.setValue({ ...modification.value, sketchVersionId: e.target.checked ? s.sketchVersionId ?? null : null })} />Confirmo que el croquis guardado documenta esta modificación</label></fieldset>
  {writable && <button className="button-primary" disabled={disabled || !!s.measuredAt} onClick={() => onCommand({ action: "RecordModification", structureId: s.id, modification: modification.value })}>Guardar modificación</button>}
- {s.modification && <p>Versión {s.modification.versionId} · {s.modificationComplete ? "Completa" : "Pendiente: guarda motivo, descripción, ficha actualizada y asociación explícita al croquis"}</p>}
+ {s.modification && <p>Modificación registrada · {s.modificationComplete ? "Completa" : "Pendiente: guarda motivo, descripción, ficha actualizada y asociación explícita al croquis"}</p>}
  </details>{s.measuredAt && writable && <p>Desmarca Medido antes de revisar o modificar; los borradores se conservan.</p>}</div>;
 }

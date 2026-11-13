@@ -344,7 +344,7 @@ Se mapean ProjectNotFound, Forbidden, InvalidWorkflowState, AlreadyConfirmed, Pr
 
 4E termina al iniciar PresentQuotationToClient. Deuda funcional: cliente solicita cambios → Comercial registra → Presupuestos → notificación al Jefe Comercial → nueva cotización/revisión/presentación. Este ciclo V2 no está implementado; se conserva el modelo V1 de primera cotización/primera confirmación. Intelligence permanece fuera de este flujo.
 
-### Gerencia — Frontend 3A
+### Gerencia Integral — G2.1
 
 `features/management` contiene contratos, service, protección visual y las dos páginas. `ManagementOverview` reproduce totalProjects, tasks, leadTime, areas y attention (total y hasta diez items). `ManagementTask` conserva datos de proyecto/cliente/SG/ciudad/línea, área, type string, status, assignedAt requerido, startedAt/completedAt/deadlineAt nullable, wasOverdue boolean nullable y leadTimeStatus. Reutiliza TaskArea, TaskStatus, LeadTimeStatus, labels/badges y formatDate en America/Bogota; tipos futuros de tarea muestran “Otra tarea”. No calcula plazos ni prioridad.
 
@@ -352,10 +352,18 @@ Management valida en runtime el contrato cerrado de overview/tasks: `leadTime` y
 
 | Ruta frontend | Endpoint backend mediante ApiClient/BFF | Presentación |
 | --- | --- | --- |
-| `/management` | GET `/api/management/overview` | KPIs, trabajo por estado, comparación por área y atención |
+| `/management` | GET `/api/management/overview`, `/api/management/tasks`, `/api/management/quotation-portfolio`, `/api/management/analytics/surfaces` | Superficies, KPIs, filtros cruzados, proyectos, áreas y atención |
 | `/management/tasks` | GET `/api/management/tasks` | Operación actual e histórica, conservando orden del backend |
 
-La suma de tareas activas es pending + inProgress y se explica en pantalla. Attention conserva el orden recibido, muestra la cantidad visible frente al total cuando está truncada y enlaza a operación/proyectos. Los estados vacíos no inventan áreas ni tareas. La tabla de operación filtra localmente por área, estado y los ocho estados temporales; busca sin distinguir mayúsculas en proyecto, cliente, SG y ciudad. No agrega query params, requests ni debounce por filtros y permite restablecerlos.
+La suma de tareas activas es pending + inProgress y se explica en pantalla. Attention conserva el orden recibido, muestra la cantidad visible frente al total cuando está truncada y enlaza a operación/proyectos. Operación conserva sus filtros locales y acepta contexto de navegación mediante projectId, clientId, city, productLine, area y status; restablecer elimina también ese contexto.
+
+`analyticsContracts` valida los DTO cerrados de portfolio y surfaces; `analyticsService` usa el ApiClient existente. El BFF permite exclusivamente GET en estas rutas. `DashboardMetrics`, `DashboardFilters`, `DashboardCharts` (Recharts 3.10.1) y `DashboardDetails` separan tarjetas, filtros, gráficos accesibles con tablas y seguimiento. Superficies se consulta de nuevo al filtrar, con cancelación y descarte de respuestas tardías. Tareas se filtran sobre la respuesta oficial, sin recalcular Lead Time. Las consultas de tareas/portafolio y superficies son independientes, no un snapshot atómico conjunto.
+
+Surfaces admite projectId/clientId, city exacta, productLine, area/status (misma tarea para seleccionar proyectos), skip y ascending; devuelve páginas de 50 ordenadas por m² cotizados y un agregado de toda la selección. Los filtros de área/estado seleccionan proyectos completos para superficies, no fracciones de m². Las opciones de proyecto/cliente proceden de tareas y de la página actual de proyectos, no de un buscador exhaustivo. Valor económico y attention permanecen globales con etiqueta explícita. No hay filtro temporal ni reconstrucción histórica.
+
+Los valores m² viajan como cadenas decimales: el texto/tooltip conserva sus dígitos; solo la geometría del gráfico utiliza Number. Cotizados suma SquareMeters documentales vigentes sin multiplicar cantidad otra vez. Referencia medida usa dimensiones actuales en metros por estructura física activa, excluye retiradas y dimensiones ausentes/no positivas, y muestra elegibles/excluidas y motivos. No se compara con cotizado como porcentaje de avance. La superficie congelada radicada queda null con motivo FrozenVersionSelectionNotDefined: no se elige una versión histórica ni se sustituye por medidas actuales. Cumplimiento agrupa CompletedOnTime / (CompletedOnTime + CompletedLate), mostrando denominador y completadas no evaluables.
+
+Smoke G2.1: reiniciar Backend con el código compilado y abrir `/management` con Management activo; verificar los cuatro GET 200, superficie/cobertura, selección y limpieza por proyecto/área/estado, orden y paginación, enlaces a proyecto y tareas, 403 sin logout y limpieza al cambiar de rol. No requiere migraciones. Las pruebas de UI usan datos sintéticos; no acreditan smoke visual con Google real.
 
 `ManagementAccess` exige sesión autenticada, membresía Management y activeRole Management antes de montar o consultar. Subject/área son parte de la key; cambiar área desmonta recursos. useResource aborta y descarta respuestas tardías. 401 invalida sesión; 403 muestra acceso denegado sin logout; no hay caché global gerencial.
 
@@ -1219,3 +1227,103 @@ Authorization y rol activo permitidos, no-store y errores sanitizados. El servid
 aceptacion exacta, miembros, OP, cuotas, hashes, revisiones y responsabilidad. La UI no calcula
 fabricacion ni interpreta PDFs. Produccion y Logistica reciben una representacion persistente
 versionada en backend; no se crean aqui sus operaciones ni checklists.
+
+## Jefe de Operaciones P2.4 — contrato y verificación
+
+### Superficie implementada
+
+- Rutas App Router: `src/app/(app)/operations/page.tsx` y
+  `operations/preparations/[id]/page.tsx` (params asíncronos de Next 16).
+- `src/features/operations/contracts.ts`: proyecciones tipadas y validación de respuestas.
+  `ProductionReview.State` llega como **1/2/3** dentro de JsonElement (Draft/Approved/Superseded),
+  no como string. Los estados de Preparation/ExtractionJob sí son strings; incluye Failed.
+  Originales de candidatos y adiciones manuales se distinguen expresamente. Nunca se
+  interpreta HTML o comandos procedentes de los snapshots.
+- `service.ts`: API compartida; creación/extracción sin body ni Content-Type inventado,
+  comandos JSON, evidencia multipart sin transformar y descargas autenticadas por stream.
+- `OperationsPage.tsx`: liberaciones/preparaciones paginadas, creación explícita.
+- `PreparationPage.tsx`: alcance, estado de extracción y selección de revisiones.
+- `ReviewPanel.tsx` / `ReviewForm.tsx`: filtros OP/material, original/propuesta, clasificación,
+  correcciones, adiciones/exclusiones/restauraciones, notas/conflictos, evidencia, historial,
+  aprobación y reextracción. Material y ruta se eligen por separado. Medida y CT permanecen
+  independientes, sin conversión ni ajuste automático. La suma visual de cantidades no
+  produce unidades operativas ni sustituye la validación de cobertura del Backend.
+- `hooks.ts` / `shared.tsx`: cancelación, cargas, reintentos y presentación local de la feature.
+- Reconocimiento de OperationsHead en `auth/types/auth.ts`, navegación propia en
+  `shell/navigation.ts` y ausencia de bandeja de tareas inventada en `tasks/inbox.ts`.
+
+### Endpoints consumidos
+
+Todos pasan por `/api/backend/operations` con `X-SnG-Active-Role`, Bearer y no-store:
+
+| Método y ruta relativa a operations | Uso |
+| --- | --- |
+| GET releases?skip=N | Liberaciones confirmadas, 50 por página |
+| GET preparations?skip=N | Preparaciones, 50 por página |
+| POST releases/{versionId}/preparation | Creación explícita e idempotente por release |
+| GET preparations/{id} | Alcance confirmado y documentos fuente |
+| GET / POST preparations/{id}/extraction | Lectura / solicitud explícita de extracción |
+| GET preparations/{id}/reviews | Primeras 100 revisiones ordenadas por número |
+| GET preparations/{id}/reviews/{reviewId} | Originales/propuestas, incidencias y aprobación |
+| GET preparations/{id}/reviews/history?skip=N | Eventos persistentes, 100 por página |
+| POST preparations/{id}/reviews/commands | Start/Edit/Add/Exclude/Restore/Resolve/Note/RecordConflict/Approve/Reextract |
+| POST preparations/{id}/reviews/evidence | Archivo + requestKey, máximo 25 MiB en el cliente |
+| GET preparations/{id}/reviews/evidence/{documentId} | Adjunto privado |
+| GET preparations/{id}/reviews/sources/{documentId} | Fuente exacta del release |
+
+La allowlist `backendPath.operationsMethods` también reconoce el GET candidates real de P2.2,
+pero la UI no combina candidatos de distintas generaciones: utiliza la revisión seleccionada.
+BFF valida métodos/rutas/UUID y solamente `skip` en consultas paginadas; no acepta URLs externas.
+OperationsHead accede a la superficie operativa. Management solo a GET de reviews; los demás
+roles no acceden al módulo. La autorización definitiva pertenece al Backend. Las descargas
+requieren octet-stream y nombre válido, attachment + nosniff; nunca se abre evidencia como HTML.
+
+### Escrituras, errores y decisiones
+
+Cada comando usa RequestKey y ExpectedRevision de la revisión consultada. Cargas tienen su
+propia clave estable. Un resultado incierto conserva exactamente el comando/archivo original
+para reintento explícito y bloquea nuevas escrituras. Un 409 relee sin repetir la escritura.
+Si la escritura fue exitosa pero falla la consulta posterior, se informa que ya se registró y
+se ofrece volver a consultar. Las consultas canceladas no son errores de conexión. Respuestas
+obsoletas no reemplazan la selección actual; cambio de subject/rol o desmontaje aborta el trabajo.
+401/403 mantienen el comportamiento central. No se almacenan componentes ni evidencia localmente.
+
+Se exige motivo en todos los comandos y evidencia/ubicación/observación donde P2.3 lo requiere.
+Solo HumanReview ofrece resolución; conflictos documentales e integridad no tienen bypass.
+Los adjuntos no resuelven conflictos. Approved y Superseded no muestran formularios de edición.
+Confirmaciones explícitas para creación, extracción, exclusión, reextracción y aprobación.
+
+Contratos pendientes, sin cambiar Backend:
+- Nombres/SG, números de radicado y versión documental en DTO de Operaciones. Hoy solo IDs.
+- Bandeja/listado de preparaciones autorizado para Gerencia; solo hay lectura de reviews conocidos.
+- Estado agregado de aprobación/generación actual en el listado: se consulta en el detalle.
+- Paginación de reviews más allá de las primeras 100; el límite se hace visible.
+- Políticas formales de resolución documental y correcciones posteriores a aprobación.
+
+### Pruebas y smoke integrado pendiente
+
+`tests/Operations.test.tsx`, `operationsBridge.test.ts` y `operationsFixtures.ts` usan datos
+sintéticos con la forma real de P2.3. Cubren permisos, creación/extracción explícitas, estado
+numérico, originales/CT, clasificación, correcciones, adiciones, exclusiones, notas, resolución
+permitida, conflictos bloqueados, aprobación, reextracción, idempotencia, 409, evidencia,
+descargas, carga fallida/recuperación, cancelación y ausencia de tareas automáticas.
+
+Pasos para el smoke integrado, en un entorno de pruebas autorizado:
+1. Disponer de Backend con P2.1–P2.3, migraciones aplicadas **solo con autorización independiente**,
+   almacenamiento privado y extractor configurados. Esta tarea no aplica migraciones.
+2. Iniciar Frontend con configuración existente y confianza TLS local; autenticar una cuenta
+   cuyo auth/me incluya OperationsHead y seleccionar Jefe de Operaciones.
+3. Abrir Preparaciones y confirmar que navegar/refrescar solo produce GET.
+4. Sobre un release sintético autorizado, crear preparación, solicitar extracción y consultar
+   estado. Iniciar revisión explícita y revisar cada OP y su fuente.
+5. Probar corrección con evidencia, clasificación, carga/descarga e historial. Abrir dos sesiones
+   para comprobar 409 sin repetición automática y consultar una revisión anterior.
+6. Verificar bloqueo de discrepancias 28/35 y 0,1; en un caso consistente confirmar aprobación,
+   recargar y comprobar actor/fecha/hash y ausencia de edición/tareas operativas.
+7. Cambiar de área y comprobar cancelación/ausencia de escritura. Gerencia solo consulta una
+   revisión conocida; Engineering/Production no heredan acceso.
+
+No se ha ejecutado este recorrido contra PostgreSQL operativo. El intento de smoke de lectura
+con Opera se detuvo porque Computer Use no pudo verificar su URL. No se declara aptitud para
+Producción. Siguiente fase: completar ese smoke y los contratos de identificación/listado antes
+de diseñar consumo operativo de aprobaciones; no generar checklists desde el navegador.

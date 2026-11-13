@@ -48,7 +48,18 @@ describe("closed incremental commercial opening bridge",()=>{
 });
 
 describe("controlled backend bridge", () => {
-  it.each(["overview", "tasks"])("allows GET management/%s with existing query/header handling", async (endpoint) => {
+  it("allows only GET on the exact surfaces analytics route", async () => {
+    const path = ["management", "analytics", "surfaces"];
+    expect((await GET(request(), context(path))).status).toBe(200);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/api/management/analytics/surfaces?");
+    fetchMock.mockClear();
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      expect((await forwardBackend(request(method), path)).status).toBe(405);
+    }
+    expect((await GET(request(), context([...path, "extra"]))).status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it.each(["overview", "tasks", "quotation-portfolio"])("allows GET management/%s with existing query/header handling", async (endpoint) => {
     expect((await GET(request(), context(["management", endpoint]))).status).toBe(200);
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe(`${upstream}/api/management/${endpoint}?status=Open&tag=a%2Bb&tag=c`);

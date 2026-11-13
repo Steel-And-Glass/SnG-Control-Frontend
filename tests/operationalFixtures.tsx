@@ -14,7 +14,7 @@ import { token, user } from "./fixtures";
 export const client: Client = { id: "client-1", name: "Cliente de prueba", createdAt: "2026-10-15T15:00:00Z", updatedAt: "2026-10-15T15:00:00Z" };
 export const project: Project = {
   id: "project-1", clientId: client.id, name: "Proyecto Norte", city: "Bogotá", productLine: "Classic",
-  sgCode: null, createdAt: "2026-10-15T15:00:00Z", updatedAt: "2026-10-15T15:00:00Z", createdBy: user,
+  sgCode: null, createdAt: "2026-10-15T15:00:00Z", updatedAt: "2026-10-15T15:00:00Z", createdByName: user.name, isCreatedByMe: true,
 };
 export const task: ProjectTask = { quotationRound: 1,
   id: "task-1", projectId: project.id, area: "Budgets", type: "PrepareQuotation", status: "Pending",

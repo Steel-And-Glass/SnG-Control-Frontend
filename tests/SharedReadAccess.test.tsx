@@ -19,8 +19,8 @@ describe("shared context by active area", () => {
     const nav = within(screen.getByRole("navigation", { name: "Principal" }));
     expect(nav.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(role === "Management"
       ? ["/management", "/management/tasks", "/clients", "/projects"]
-      : ["/", "/clients", "/projects", "/tasks", "/notifications"]);
-    expect(within(screen.getByRole("main")).getByRole("link", { name: /Clientes/ })).toHaveAttribute("href", "/clients");
+      : (["CommercialAdvisor", "CommercialHead"].includes(role) ? ["/", "/clients", "/projects", "/tasks", "/notifications"] : ["/", "/projects", "/tasks", "/notifications"]));
+    if (["CommercialAdvisor", "CommercialHead", "Management"].includes(role)) expect(within(screen.getByRole("main")).getByRole("link", { name: /Clientes/ })).toHaveAttribute("href", "/clients");
     expect(within(screen.getByRole("main")).getByRole("link", { name: /Proyectos/ })).toHaveAttribute("href", "/projects");
     if (role === "Management") expect(screen.getByRole("button", { name: "Abrir SnG Intelligence" })).toBeInTheDocument();
   });

@@ -1,4 +1,5 @@
 import { ACTIVE_ROLE_HEADER, isSystemRole } from "@/features/auth/types/auth";
+import { operationsMethods, isOperationsDownload } from "./backendPath";
 import "server-only";
 import { getApiBaseUrl } from "@/lib/config/server-env";
 import { openingFilingMethod, commercialOpeningMethod, openingRecordMethod, engineeringMethod, isMeasurementReportPath, isMeasurementSketchPath, isQuotationImagePath, isBackendPath, isBudgetQuotationPath, isCommercialQuotationPath, isSendToCommercialPath, isDocumentFilePath, isDocumentRemovalPath, isLargeDocumentTransfer } from "./backendPath";
@@ -56,6 +57,14 @@ async function hasPayload(body: ReadableStream<Uint8Array>, signal: AbortSignal)
 }
 
 export async function forwardBackend(request: Request, segments: string[]): Promise<Response> {
+  if (segments[0] === "operations") {
+    const methods = operationsMethods(segments);
+    if (!methods.length) return problem(400);
+    if (!methods.includes(request.method)) return problem(405);
+    const query = new URL(request.url).searchParams;
+    const paged = segments.length === 2 || segments.at(-1) === "history" || segments.at(-1) === "candidates";
+    if ([...query].some(([key, value]) => !paged || request.method !== "GET" || key !== "skip" || !/^\d{1,9}$/.test(value)) || query.getAll("skip").length > 1) return problem(400);
+  }
   if (segments[2] === "opening-filings" && openingFilingMethod(segments) !== request.method) return problem(openingFilingMethod(segments) ? 405 : 400);
   if (segments[2] === "incremental-opening-records" && commercialOpeningMethod(segments) !== request.method) return problem(commercialOpeningMethod(segments) ? 405 : 400);
   if (segments[2] === "opening-records" && openingRecordMethod(segments) !== request.method) return problem(openingRecordMethod(segments) ? 405 : 400);
@@ -82,6 +91,7 @@ export async function forwardBackend(request: Request, segments: string[]): Prom
 
   const activeRole = request.headers.get(ACTIVE_ROLE_HEADER);
   if (!isSystemRole(activeRole)) return problem(403);
+  if (segments[0] === "operations" && activeRole !== "OperationsHead" && !(activeRole === "Management" && request.method === "GET" && segments[3] === "reviews")) return problem(403);
 
   let base: URL;
   try { base = getApiBaseUrl(); } catch { return problem(503); }
@@ -137,7 +147,8 @@ export async function forwardBackend(request: Request, segments: string[]): Prom
     const contentType = response.headers.get("Content-Type") ?? "";
     const mediaType = contentType.split(";")[0].trim().toLowerCase();
     const documentFile = request.method === "GET" && isDocumentFilePath(segments);
-    if ((segments[2] === "opening-filings" && segments[8] === "download" && mediaType === "application/octet-stream")) {
+    if (isOperationsDownload(segments) && mediaType !== "application/octet-stream") return problem(502);
+    if (isOperationsDownload(segments) || (segments[2] === "opening-filings" && segments[8] === "download" && mediaType === "application/octet-stream")) {
       const filename = downloadFilename(response.headers.get("Content-Disposition"));
       if (!filename || forbidden.some(text => filename.toLowerCase().includes(text.toLowerCase()))) return problem(502);
       responseHeaders.set("Content-Type", "application/octet-stream");

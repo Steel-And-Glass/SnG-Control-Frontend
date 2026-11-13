@@ -43,7 +43,7 @@ describe("AuthProvider", () => {
   it("persists the token and non-authoritative area preference without rendering the token", async () => {
     mount();
     await userEvent.click(screen.getByText("Entrar"));
-    expect(await screen.findByText(user.subject)).toBeInTheDocument();
+    expect(await screen.findByText(user.name!)).toBeInTheDocument();
     expect(screen.getByTestId("status").textContent).toBe("authenticated");
     expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe(token);
     expect(sessionStorage.length).toBe(2);
@@ -76,7 +76,7 @@ describe("AuthProvider", () => {
     sessionStorage.setItem(SESSION_TOKEN_KEY, token);
     mount();
     expect(screen.getByTestId("status").textContent).toBe("loading");
-    expect(await screen.findByText(user.subject)).toBeInTheDocument();
+    expect(await screen.findByText(user.name!)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/me", expect.objectContaining({ headers: { Authorization: `Bearer ${token}` } }));
   });
@@ -93,7 +93,7 @@ describe("AuthProvider", () => {
   it("logout removes token and identity, redirects, and does not call the backend", async () => {
     sessionStorage.setItem(SESSION_TOKEN_KEY, token);
     mount();
-    await screen.findByText(user.subject);
+    await screen.findByText(user.name!);
     await userEvent.click(screen.getByText("Salir"));
     expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull();
     expect(screen.queryByText(user.subject)).not.toBeInTheDocument();
@@ -117,10 +117,10 @@ describe("AuthProvider", () => {
     const local = vi.spyOn(window, "localStorage", "get").mockImplementation(() => { throw new Error("forbidden"); });
     sessionStorage.setItem(SESSION_TOKEN_KEY, token);
     mount();
-    await screen.findByText(user.subject);
+    await screen.findByText(user.name!);
     await userEvent.click(screen.getByText("Salir"));
     await userEvent.click(screen.getByText("Entrar"));
-    await screen.findByText(user.subject);
+    await screen.findByText(user.name!);
     expect(local).not.toHaveBeenCalled();
   });
 
