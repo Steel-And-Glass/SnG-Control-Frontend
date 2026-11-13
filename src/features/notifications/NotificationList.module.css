@@ -13,3 +13,8 @@
 .message { margin-top: 5px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; color: var(--ink-soft); }
 .metadata { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font-size: 11px; color: var(--ink-soft); }
 .empty { color: var(--ink-soft); font-size: 13px; }
+.dayLabel { margin-top: 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); list-style: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter { min-height: 2.2rem; padding: .35rem .9rem; border: 1px solid var(--border); border-radius: 999px; background: #fff; font-size: .85rem; font-weight: 600; color: var(--ink-soft); }
+.filter:hover { border-color: var(--brand); color: var(--brand-hover); }
+.filter[aria-checked="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }

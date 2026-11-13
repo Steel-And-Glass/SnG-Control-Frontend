@@ -9,3 +9,11 @@
 .dates { display: grid; gap: 5px; margin-top: 10px; color: var(--ink-soft); font-size: 12px; }
 .overdue .heading h3 { color: var(--danger); }
 .empty { font-size: 13px; color: var(--ink-soft); }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 0; }
+.summaryItem { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.summaryItem dt { font-size: 12px; color: var(--ink-soft); }
+.summaryItem dd { margin: 0; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.toneDanger { border-color: var(--danger); background: var(--danger-soft); }
+.toneDanger dd { color: var(--danger); }
+.toneWarning { border-color: var(--warning); background: var(--warning-soft); }
+.toneWarning dd { color: var(--warning); }

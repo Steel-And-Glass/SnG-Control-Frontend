@@ -14,6 +14,14 @@ const timingTones: Record<LeadTimeStatus, StatusTone> = {
   Overdue: "danger", CompletedOnTime: "success", CompletedLate: "warning", UntrackedLegacy: "neutral",
 };
 
+const urgencyRank: Record<LeadTimeStatus, number> = { Overdue: 0, DueToday: 1, DueSoon: 2, OnTrack: 3, NotStarted: 4, UntrackedLegacy: 5, CompletedLate: 6, CompletedOnTime: 7 };
+// Most urgent first, then nearest deadline; tasks without a deadline go last within their urgency.
+export function sortTasksByUrgency<T extends Pick<ProjectTask, "leadTimeStatus" | "deadlineAt">>(tasks: readonly T[]): T[] {
+  const time = (task: T) => task.deadlineAt ? Date.parse(task.deadlineAt) : Number.POSITIVE_INFINITY;
+  return [...tasks].sort((a, b) => urgencyRank[a.leadTimeStatus] - urgencyRank[b.leadTimeStatus] || time(a) - time(b));
+}
+const urgencyBorder: Partial<Record<LeadTimeStatus, string>> = { Overdue: "border-l-4 border-l-[var(--danger)]", DueToday: "border-l-4 border-l-[var(--warning)]", DueSoon: "border-l-4 border-l-[var(--warning)]" };
+
 export function TaskStatusBadge({ task, technical = false }: { task: Pick<ProjectTask, "status">; technical?: boolean }) {
   return <StatusBadge tone={task.status === "Completed" ? "success" : task.status === "InProgress" && !technical ? "info" : "neutral"}>{taskStatusLabels[task.status]}</StatusBadge>;
 }
@@ -45,7 +53,7 @@ export function TaskList({ tasks, projectNames, projectContext, compact = false 
     {task.wasOverdue && <p className="metadata mt-2">Registró atraso.</p>}
   </li>)}</ul> : <p className={styles.empty}>No hay tareas para mostrar.</p>;
   if (!tasks.length) return <EmptyState title="No hay tareas para mostrar." />;
-  return <ul className="stack">{tasks.map((task) => <li key={task.id} className={`panel ${task.leadTimeStatus === "Overdue" ? "border-l-4 border-l-[var(--danger)]" : ""}`}>
+  return <ul className="stack">{sortTasksByUrgency(tasks).map((task) => <li key={task.id} className={`panel ${urgencyBorder[task.leadTimeStatus] ?? ""}`}>
     <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="stack"><div className="section-header"><h3 className="font-semibold">{taskTypeLabels[task.type]}</h3>{task.quotationRound && <span className="metadata">Ronda {task.quotationRound}</span>}<TaskStatusBadge task={task} /></div>
         {task.type==="FileOpeningRecord"&&<Link className="text-link" href={`/projects/${encodeURIComponent(task.projectId)}/opening-filings?task=${encodeURIComponent(task.id)}`}>Abrir radicación de Vanos</Link>}

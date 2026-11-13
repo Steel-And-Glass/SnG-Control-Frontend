@@ -10,6 +10,7 @@ import { useResource } from "@/lib/api/useResource";
 import { tasksService } from "./service";
 import { TaskList } from "./TaskList";
 import { taskStatusLabels, type TaskStatus } from "./types";
+import { TaskSummary } from "./TaskSummary";
 import { taskInboxByRole, type TaskInbox } from "./inbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
@@ -44,6 +45,7 @@ function TaskInboxContent({ inbox }: { inbox: TaskInbox }) {
     <p className="text-sm text-slate-600">Fechas y horas de Colombia (America/Bogota).</p>
     {(tasks.loading || projects.loading) && <p role="status">Cargando tareas…</p>}
     <ErrorNotice error={projects.error} retry={projects.refresh} /><ErrorNotice error={tasks.error} retry={tasks.refresh} />
+    {tasks.data && status !== "Completed" && tasks.data.length > 0 && <TaskSummary tasks={tasks.data} />}
     {tasks.data && projects.data && <section aria-labelledby="task-results-title"><h2 id="task-results-title" className="sr-only">Tareas consultadas</h2>{tasks.data.length ? <TaskList tasks={tasks.data} projectNames={projects.data.names} projectContext={area === "Accounting" ? projects.data.context : undefined} /> : <EmptyState title={inbox.empty} />}</section>}
   </div>;
 }
